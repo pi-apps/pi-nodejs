@@ -7,10 +7,13 @@
     "target": "es5",
     "allowJs": true,
     "moduleResolution": "node",
+    "esModuleInterop": true,
     "declaration": true,
-    // "lib": [
-    //   "esnext"
-    // ],
+    "lib": [
+      // "esnext"
+      "es6",
+      "dom"
+    ],
     "strictNullChecks": true,
   }
 }

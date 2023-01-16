@@ -2,6 +2,7 @@
   "name": "pi-network-node",
   "version": "0.0.1",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "repository": "git@github.com:pi-apps/pi-nodejs-server-sdk.git",
   "author": "Pi Core Team",
   "license": "PiOS",
