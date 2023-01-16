@@ -1,0 +1,17 @@
+{
+  "name": "pi-network-node",
+  "version": "0.0.1",
+  "main": "index.js",
+  "repository": "git@github.com:pi-apps/pi-nodejs-server-sdk.git",
+  "author": "Pi Core Team",
+  "license": "PiOS",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "stellar-sdk": "^10.4.1"
+  }
+}

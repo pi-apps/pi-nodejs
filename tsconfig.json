@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "outDir": "./dist",
+    "module": "commonjs",
+    "noImplicitAny": true,
+    "target": "es5",
+    "allowJs": true,
+    "moduleResolution": "node",
+    "declaration": true,
+    // "lib": [
+    //   "esnext"
+    // ],
+    "strictNullChecks": true,
+  }
+}
