@@ -13,7 +13,9 @@ export default class PiNetwork {
     this.WALLET_PRIVATE_SEED = walletPrivateSeed;
   }
 
-  
+  public hello = function() {
+    console.log("hello world!");
+  }
 
   public createPayment = async function(args: CreatePaymentArgs): Promise<void> {
     const axiosClient = axios.create({baseURL: 'https://api.minepi.com', timeout: 20000});
