@@ -2,6 +2,40 @@
 
 This is an official Pi Network Node.js npm package you can use to integrate the Pi Network apps platform with a node.js backend application.
 
+## Install
+
+1. Install directly with npm:
+```javascript
+npm install pi-nodejs-node
+```
+
+
+## Example
+
+1. Initialize the SDK
+```javascript
+import PiNetwork from 'pi-network-node';
+
+// DO NOT expose these values to public
+const apiKey = "YOUR_PI_API_KEY"
+const walletPrivateSeed = "S_YOUR_WALLET_PRIVATE_SEED" // starts with S
+const pi = new PiNetwork(apiKey, walletPrivateSeed);
+```
+
+2. Create an A2U payment
+```javascript
+const userUid = "user_uid_of_your_app"
+const paymentData = {
+  amount: 1,
+  memo: "From app to user test",
+  metadata: {test: "your metadata"},
+  uid: userUid
+}
+// check the status of the returned payment!
+// also don't forget that this is a long-running function (~10 seconds)
+const createdPayment = await pi.createPayment(paymentData);
+```
+
 ## Overall flow for A2U (App-to-User) payment
 
 To create an A2U payment using the Pi Node.js SDK, here's an overall flow you need to follow:
@@ -73,38 +107,4 @@ payment: PaymentDTO = {
     _link: string, // a link to the operation on the Pi Blockchain API
   }
 }
-```
-
-## Install
-
-1. Install directly with npm:
-```javascript
-npm install pi-nodejs-node
-```
-
-
-## Example
-
-1. Initialize the SDK
-```javascript
-import PiNetwork from 'pi-network-node';
-
-// DO NOT expose these values to public
-const apiKey = "YOUR_PI_API_KEY"
-const walletPrivateSeed = "S_YOUR_WALLET_PRIVATE_SEED" // starts with S
-const pi = new PiNetwork(apiKey, walletPrivateSeed);
-```
-
-2. Create an A2U payment
-```javascript
-const userUid = "user_uid_of_your_app"
-const paymentData = {
-  amount: 1,
-  memo: "From app to user test",
-  metadata: {test: "your metadata"},
-  uid: userUid
-}
-// check the status of the returned payment!
-// also don't forget that this is a long-running function (~10 seconds)
-const createdPayment = await pi.createPayment(paymentData);
 ```
