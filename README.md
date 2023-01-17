@@ -105,5 +105,6 @@ paymentData = {
   uid: userUid
 }
 // check the status of the returned payment!
+// also don't forget that this is a long-running function (~10 seconds)
 const createdPayment = await pi.createPayment(paymentData);
 ```
