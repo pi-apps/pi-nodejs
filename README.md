@@ -67,7 +67,7 @@ payment: PaymentDTO = {
     user_cancelled: boolean, // cancelled by the user
   },
   // Blockchain transaction data:
-  transaction: nil | { // This is nil if no transaction has been made yet
+  transaction: null | { // This is nil if no transaction has been made yet
     txid: string, // id of the blockchain transaction
     verified: boolean, // true if the transaction matches the payment, false otherwise
     _link: string, // a link to the operation on the Pi Blockchain API
