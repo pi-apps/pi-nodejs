@@ -19,7 +19,7 @@ To create an A2U payment using the Pi Node.js SDK, here's an overall flow you ne
 ## SDK Reference
 
 Here's a list of available methods. While there exists only one method at the moment, we will be providing more methods in the future, and this documentation will be updated accordingly.
-### createPayment
+### `createPayment`
 
 A single method that takes care of the entire A2U payment flow.
 
