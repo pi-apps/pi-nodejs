@@ -74,3 +74,36 @@ payment: PaymentDTO = {
   }
 }
 ```
+
+## Install
+
+1. Install directly with npm:
+```javascript
+npm install pi-nodejs-node
+```
+
+
+## Example
+
+1. Initialize the SDK
+```javascript
+import PiNetwork from 'pi-network-node';
+
+// DO NOT expose these values to public
+apiKey = "YOUR_PI_API_KEY"
+walletPrivateSeed = "S_YOUR_WALLET_PRIVATE_SEED" // starts with S
+const pi = new PiNetwork(apiKey, walletPrivateSeed);
+```
+
+2. Create an A2U payment
+```javascript
+userUid = "user_uid_of_your_app"
+paymentData = {
+  amount: 1,
+  memo: "From app to user test",
+  metadata: {test: "your metadata"},
+  uid: userUid
+}
+// check the status of the returned payment!
+const createdPayment = await pi.createPayment(paymentData);
+```
