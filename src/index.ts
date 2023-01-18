@@ -1,5 +1,5 @@
 import * as StellarSdk from "stellar-sdk";
-import { NetworkPassphrase, PaymentArgs, PaymentDTO, TransactionData } from "./types";
+import { AxiosClientOptions, NetworkPassphrase, PaymentArgs, PaymentDTO, TransactionData } from "./types";
 import { getAxiosClient } from "./utils";
 
 export default class PiNetwork {
@@ -7,17 +7,19 @@ export default class PiNetwork {
   private myKeypair: StellarSdk.Keypair;
   private NETWORK_PASSPHRASE: NetworkPassphrase;
   private currentPayment: PaymentDTO | null;
+  private axiosOptions: AxiosClientOptions | null;
 
-  constructor(apiKey: string, walletPrivateSeed: string) {
+  constructor(apiKey: string, walletPrivateSeed: string, options: AxiosClientOptions | null = null) {
     this.validateSeedFormat(walletPrivateSeed);
     this.API_KEY = apiKey;
     this.myKeypair = StellarSdk.Keypair.fromSecret(walletPrivateSeed);
+    this.axiosOptions = options;
   }
 
   public createPayment = async (paymentData: PaymentArgs): Promise<string> => {
     this.validatePaymentData(paymentData);
 
-    const axiosClient = getAxiosClient(this.API_KEY);
+    const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
     const body = { payment: paymentData };
     const response = await axiosClient.post(`/v2/payments`, body);
     this.currentPayment = response.data;
@@ -51,19 +53,19 @@ export default class PiNetwork {
   };
 
   public completePayment = async (paymentId: string, txid: string): Promise<PaymentDTO> => {
-    const axiosClient = getAxiosClient(this.API_KEY);
+    const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
     const response = await axiosClient.post(`/v2/payments/${paymentId}/complete`, { txid });
     return response.data;
   };
 
   public getPayment = async (paymentId: string): Promise<PaymentDTO> => {
-    const axiosClient = getAxiosClient(this.API_KEY);
+    const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
     const response = await axiosClient.get(`/v2/payments/${paymentId}`);
     return response.data;
   };
 
   public cancelPayment = async (paymentId: string): Promise<PaymentDTO> => {
-    const axiosClient = getAxiosClient(this.API_KEY);
+    const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
     const response = await axiosClient.post(`/v2/payments/${paymentId}/cancel`);
     return response.data;
   }
