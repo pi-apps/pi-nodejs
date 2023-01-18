@@ -14,35 +14,44 @@ export default class PiNetwork {
     this.myKeypair = StellarSdk.Keypair.fromSecret(walletPrivateSeed);
   }
 
-  public createPayment = async (paymentData: PaymentArgs): Promise<PaymentDTO> => {
+  public createPayment = async (paymentData: PaymentArgs): Promise<string> => {
     this.validatePaymentData(paymentData);
 
     const axiosClient = getAxiosClient(this.API_KEY);
     const body = { payment: paymentData };
     const response = await axiosClient.post(`/v2/payments`, body);
-    const paymentIdentifier = response.data.identifier;
+    this.currentPayment = response.data;
 
-    const piHorizon = this.getHorizonClient(response.data.network);
-
-    const transactionData = {
-      amount: paymentData.amount,
-      paymentIdentifier,
-      fromAddress: response.data.from_address,
-      toAddress: response.data.to_address,
-    };
-
-    const transaction = await this.buildA2UTransaction(piHorizon, transactionData);
-    const txid = await this.submitTransaction(piHorizon, transaction);
+    return response.data.identifier;
 
     const completedPayment = await this.completePayment(paymentIdentifier, txid);
     return completedPayment;
   };
 
-  public submitPayment = async (paymentId: string) => {
+  public submitPayment = async (paymentId: string): Promise<string> => {
     if (!this.currentPayment) {
       this.currentPayment = await this.getPayment(paymentId);
     }
-  }
+
+    const {
+      amount,
+      identifier: paymentIdentifier,
+      from_address: fromAddress,
+      to_address: toAddress,
+    } = this.currentPayment;
+
+    const piHorizon = this.getHorizonClient(this.currentPayment.network);
+    const transactionData = {
+      amount,
+      paymentIdentifier,
+      fromAddress,
+      toAddress,
+    };
+
+    const transaction = await this.buildA2UTransaction(piHorizon, transactionData);
+    const txid = await this.submitTransaction(piHorizon, transaction);
+    return txid;
+  };
 
   public completePayment = async (paymentIdentifier: string, txid: string): Promise<PaymentDTO> => {
     const axiosClient = getAxiosClient(this.API_KEY);
@@ -54,7 +63,7 @@ export default class PiNetwork {
     const axiosClient = getAxiosClient(this.API_KEY);
     const response = await axiosClient.get(`/v2/payments/${paymentId}`);
     return response.data;
-  }
+  };
 
   private validateSeedFormat = (seed: string): void => {
     if (!seed.startsWith("S")) throw new Error("Wallet private seed must starts with 'S'");
