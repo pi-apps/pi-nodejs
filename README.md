@@ -31,9 +31,17 @@ const paymentData = {
   metadata: {test: "your metadata"},
   uid: userUid
 }
-// check the status of the returned payment!
-// also don't forget that this is a long-running function (~10 seconds)
-const createdPayment = await pi.createPayment(paymentData);
+const paymentId = await pi.createPayment(paymentData);
+```
+
+3. Submit the payment to the Pi Blockchain
+```javascript
+const txid = await pi.submitPayment(paymentId);
+```
+
+4. Complete the payment
+```javascript
+const completedPayment = await pi.completePayment(paymentId, txid);
 ```
 
 ## Overall flow for A2U (App-to-User) payment
