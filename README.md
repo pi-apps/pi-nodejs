@@ -85,15 +85,23 @@ type PaymentArgs = {
 }
 ```
 
-- Response value: `a payment identifier (paymentId)`
+- Return value: `a payment identifier (paymentId)`
 
+### `submitPayment`
 
+This method creates a payment transaction and submits it to the Pi Blockchain.
 
+- Required parameter: `paymentId`
+- Return value: `a transaction identifier (txid)`
 
+### `completePayment`
 
+This method completes the payment in the Pi server.
 
+- Required parameter: `paymentId, txid`
+- Return value: `a payment object (PaymentDTO)`
 
-The method will return a payment object that looks like the following:
+The method return a payment object with the following fields:
 
 ```typescript
 payment: PaymentDTO = {
@@ -117,10 +125,24 @@ payment: PaymentDTO = {
     user_cancelled: boolean, // cancelled by the user
   },
   // Blockchain transaction data:
-  transaction: null | { // This is nil if no transaction has been made yet
+  transaction: null | { // This is null if no transaction has been made yet
     txid: string, // id of the blockchain transaction
     verified: boolean, // true if the transaction matches the payment, false otherwise
     _link: string, // a link to the operation on the Pi Blockchain API
   }
 }
 ```
+
+### `getPayment`
+
+This method returns a payment object if it exists.
+
+- Required parameter: `paymentId`
+- Return value: `a payment object (PaymentDTO)`
+
+### `cancelPayment`
+
+This method cancels the payment in the Pi server.
+
+- Required parameter: `paymentId`
+- Return value: `a payment object (PaymentDTO)`
