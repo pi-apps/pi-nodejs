@@ -23,9 +23,6 @@ export default class PiNetwork {
     this.currentPayment = response.data;
 
     return response.data.identifier;
-
-    const completedPayment = await this.completePayment(paymentIdentifier, txid);
-    return completedPayment;
   };
 
   public submitPayment = async (paymentId: string): Promise<string> => {
@@ -53,9 +50,9 @@ export default class PiNetwork {
     return txid;
   };
 
-  public completePayment = async (paymentIdentifier: string, txid: string): Promise<PaymentDTO> => {
+  public completePayment = async (paymentId: string, txid: string): Promise<PaymentDTO> => {
     const axiosClient = getAxiosClient(this.API_KEY);
-    const response = await axiosClient.post(`/v2/payments/${paymentIdentifier}/complete`, { txid });
+    const response = await axiosClient.post(`/v2/payments/${paymentId}/complete`, { txid });
     return response.data;
   };
 
