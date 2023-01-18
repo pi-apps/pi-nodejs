@@ -6,6 +6,7 @@ export default class PiNetwork {
   private API_KEY: string;
   private myKeypair: StellarSdk.Keypair;
   private NETWORK_PASSPHRASE: NetworkPassphrase;
+  private currentPayment: PaymentDTO | null;
 
   constructor(apiKey: string, walletPrivateSeed: string) {
     this.validateSeedFormat(walletPrivateSeed);
@@ -38,7 +39,9 @@ export default class PiNetwork {
   };
 
   public submitPayment = async (paymentId: string) => {
-
+    if (!this.currentPayment) {
+      this.currentPayment = await this.getPayment(paymentId);
+    }
   }
 
   public completePayment = async (paymentIdentifier: string, txid: string): Promise<PaymentDTO> => {
@@ -46,6 +49,12 @@ export default class PiNetwork {
     const response = await axiosClient.post(`/v2/payments/${paymentIdentifier}/complete`, { txid });
     return response.data;
   };
+
+  public getPayment = async (paymentId: string): Promise<PaymentDTO> => {
+    const axiosClient = getAxiosClient(this.API_KEY);
+    const response = await axiosClient.get(`/v2/payments/${paymentId}`);
+    return response.data;
+  }
 
   private validateSeedFormat = (seed: string): void => {
     if (!seed.startsWith("S")) throw new Error("Wallet private seed must starts with 'S'");
