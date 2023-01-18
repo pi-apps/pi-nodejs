@@ -37,6 +37,16 @@ export default class PiNetwork {
     return completedPayment;
   };
 
+  public submitPayment = async (paymentId: string) => {
+
+  }
+
+  public completePayment = async (paymentIdentifier: string, txid: string): Promise<PaymentDTO> => {
+    const axiosClient = getAxiosClient(this.API_KEY);
+    const response = await axiosClient.post(`/v2/payments/${paymentIdentifier}/complete`, { txid });
+    return response.data;
+  };
+
   private validateSeedFormat = (seed: string): void => {
     if (!seed.startsWith("S")) throw new Error("Wallet private seed must starts with 'S'");
     if (seed.length !== 56) throw new Error("Wallet private seed must be 56-character long");
@@ -92,11 +102,5 @@ export default class PiNetwork {
     const txResponse = await piHorizon.submitTransaction(transaction);
     // @ts-ignore
     return txResponse.id;
-  };
-
-  private completePayment = async (paymentIdentifier: string, txid: string): Promise<PaymentDTO> => {
-    const axiosClient = getAxiosClient(this.API_KEY);
-    const response = await axiosClient.post(`/v2/payments/${paymentIdentifier}/complete`, { txid });
-    return response.data;
   };
 }
