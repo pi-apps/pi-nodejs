@@ -52,11 +52,19 @@ To create an A2U payment using the Pi Node.js SDK, here's an overall flow you ne
 > You'll be initializing the SDK with the Pi API Key of your app and the Private Seed of your app wallet.
 
 2. Create an A2U payment
-> `createPayment` method will handle everything from the beginning to the end of the process.
-> **WARNING** Since this single method takes care of the entire process, *i.e. requesting a payment to the Pi server, submitting the transaction to the Pi blockchain and completing the payment,* it can take a few seconds, roughly less than 10 seconds, to complete the call.
+> You can create an A2U payment using `createPayment` method. This method returns a payment identifier (payment id).
 
-3. Check the payment status
-> When `createPayment` is completed successfully, it returns the payment object you created on the Pi server. Check the `status` field to make sure everything looks correct.
+3. Store the payment id in your database
+> It is critical that you store the payment id, returned by `createPayment` method, in your database so that you don't double-pay the same user, by keeping track of the payment.
+
+4. Submit the payment to the Pi Blockchain
+> You can submit the payment to the Pi Blockchain using `submitPayment` method. This method builds a payment transaction and submits it to the Pi Blockchain for you. Once submitted, the method returns a transaction identifier (txid).
+
+5. Store the txid in your database
+> It is strongly recommended that you store the txid along with the payment id you stored earlier for your reference.
+
+6. Complete the payment
+> After checking the transaction with the txid you obtained, you must complete the payment, which you can do with `completePayment` method. Upon completing, the method returns the payment object. Check the `status` field to make sure everything looks correct.
 
 ## SDK Reference
 
