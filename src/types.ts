@@ -39,3 +39,7 @@ export type PaymentDTO = {
 
 export type NetworkPassphrase = "Pi Network" | "Pi Testnet";
 export type Direction = "user_to_app" | "app_to_user";
+
+export type AxiosClientOptions = {
+  baseUrl?: string;
+};
