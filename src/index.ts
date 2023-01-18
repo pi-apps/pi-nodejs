@@ -62,6 +62,12 @@ export default class PiNetwork {
     return response.data;
   };
 
+  public cancelPayment = async (paymentId: string): Promise<PaymentDTO> => {
+    const axiosClient = getAxiosClient(this.API_KEY);
+    const response = await axiosClient.post(`/v2/payments/${paymentId}/cancel`);
+    return response.data;
+  }
+
   private validateSeedFormat = (seed: string): void => {
     if (!seed.startsWith("S")) throw new Error("Wallet private seed must starts with 'S'");
     if (seed.length !== 56) throw new Error("Wallet private seed must be 56-character long");
