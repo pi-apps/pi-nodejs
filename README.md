@@ -85,21 +85,21 @@ type PaymentArgs = {
 }
 ```
 
-- Return value: `a payment identifier (paymentId)`
+- Return value: `a payment identifier (paymentId: string)`
 
 ### `submitPayment`
 
 This method creates a payment transaction and submits it to the Pi Blockchain.
 
 - Required parameter: `paymentId`
-- Return value: `a transaction identifier (txid)`
+- Return value: `a transaction identifier (txid: string)`
 
 ### `completePayment`
 
 This method completes the payment in the Pi server.
 
 - Required parameter: `paymentId, txid`
-- Return value: `a payment object (PaymentDTO)`
+- Return value: `a payment object (payment: PaymentDTO)`
 
 The method return a payment object with the following fields:
 
@@ -138,21 +138,21 @@ payment: PaymentDTO = {
 This method returns a payment object if it exists.
 
 - Required parameter: `paymentId`
-- Return value: `a payment object (PaymentDTO)`
+- Return value: `a payment object (payment: PaymentDTO)`
 
 ### `cancelPayment`
 
 This method cancels the payment in the Pi server.
 
 - Required parameter: `paymentId`
-- Return value: `a payment object (PaymentDTO)`
+- Return value: `a payment object (payment: PaymentDTO)`
 
 ### `getIncompleteServerPayments`
 
 This method returns the latest incomplete payment which your app has created, if present. Use this method to troubleshoot the following error: "You need to complete the ongoing payment first to create a new one."
 
 - Required parameter: `none`
-- Return value: `an array which contains 0 or 1 payment object`
+- Return value: `an array which contains 0 or 1 payment object (payments: Array<PaymentDTO>)`
 
 If a payment is returned by this method, you must follow one of the following 3 options:
 
