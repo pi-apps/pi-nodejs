@@ -68,7 +68,13 @@ export default class PiNetwork {
     const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
     const response = await axiosClient.post(`/v2/payments/${paymentId}/cancel`);
     return response.data;
-  }
+  };
+
+  public getIncompleteServerPayments = async (): Promise<Array<PaymentDTO>> => {
+    const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
+    const response = await axiosClient.get("/v2/payments/incomplete_server_payments");
+    return response.data;
+  };
 
   private validateSeedFormat = (seed: string): void => {
     if (!seed.startsWith("S")) throw new Error("Wallet private seed must starts with 'S'");
