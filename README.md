@@ -162,7 +162,7 @@ If a payment is returned by this method, you must follow one of the following 3 
 
 3. if a blockchain transaction has been made, complete the payment
 
-If you do not know what this payment maps to in your business logic, you may use its metadata property to retrieve which business logic item it relates to. Remember that metadata is a required argument when creating a payment, and should be used as a way to link this payment to an item of your business logic.
+If you do not know what this payment maps to in your business logic, you may use its `metadata` property to retrieve which business logic item it relates to. Remember that `metadata` is a required argument when creating a payment, and should be used as a way to link this payment to an item of your business logic.
 
 ## Troubleshooting
 
