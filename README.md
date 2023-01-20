@@ -146,3 +146,20 @@ This method cancels the payment in the Pi server.
 
 - Required parameter: `paymentId`
 - Return value: `a payment object (PaymentDTO)`
+
+### `getIncompleteServerPayments`
+
+This method returns the latest incomplete payment which your app has created, if present. Use this method to troubleshoot the following error: "You need to complete the ongoing payment first to create a new one."
+
+- Required parameter: `none`
+- Return value: `an array which contains 0 or 1 payment object`
+
+If a payment is returned by this method, you must follow one of the following 3 options:
+
+1. cancel the payment, if it is not linked with a blockchain transaction and you don't want to submit the transaction anymore
+
+2. submit the transaction and complete the payment
+
+3. if a blockchain transaction has been made, complete the payment
+
+If you do not know what this payment maps to in your business logic, you may use its metadata property to retrieve which business logic item it relates to. Remember that metadata is a required argument when creating a payment, and should be used as a way to link this payment to an item of your business logic.
