@@ -4,11 +4,15 @@ This is an official Pi Network Node.js npm package you can use to integrate the 
 
 ## Install
 
-1. Install directly with npm:
-```javascript
-npm install pi-nodejs-node
-```
+Install this package as a dependency of your app:
 
+```shell
+# With npm:
+npm install --save pi-backend
+
+# With yarn:
+yarn add pi-backend
+```
 
 ## Example
 
@@ -169,3 +173,4 @@ If you do not know what this payment maps to in your business logic, you may use
 ### Error when creating a payment: "You need to complete the ongoing payment first to create a new one."
 
 See documentation for the `getIncompleteServerPayments` above.
+
