@@ -28,34 +28,42 @@ export default class PiNetwork {
   };
 
   public submitPayment = async (paymentId: string): Promise<string> => {
-    if (!this.currentPayment) {
-      this.currentPayment = await this.getPayment(paymentId);
+    try {
+      if (!this.currentPayment || this.currentPayment.identifier != paymentId) {
+        this.currentPayment = await this.getPayment(paymentId);
+      }
+  
+      const {
+        amount,
+        identifier: paymentIdentifier,
+        from_address: fromAddress,
+        to_address: toAddress,
+      } = this.currentPayment;
+  
+      const piHorizon = this.getHorizonClient(this.currentPayment.network);
+      const transactionData = {
+        amount,
+        paymentIdentifier,
+        fromAddress,
+        toAddress,
+      };
+  
+      const transaction = await this.buildA2UTransaction(piHorizon, transactionData);
+      const txid = await this.submitTransaction(piHorizon, transaction);
+      return txid;
+    } finally {
+      this.currentPayment = null;
     }
-
-    const {
-      amount,
-      identifier: paymentIdentifier,
-      from_address: fromAddress,
-      to_address: toAddress,
-    } = this.currentPayment;
-
-    const piHorizon = this.getHorizonClient(this.currentPayment.network);
-    const transactionData = {
-      amount,
-      paymentIdentifier,
-      fromAddress,
-      toAddress,
-    };
-
-    const transaction = await this.buildA2UTransaction(piHorizon, transactionData);
-    const txid = await this.submitTransaction(piHorizon, transaction);
-    return txid;
   };
 
   public completePayment = async (paymentId: string, txid: string): Promise<PaymentDTO> => {
-    const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
-    const response = await axiosClient.post(`/v2/payments/${paymentId}/complete`, { txid });
-    return response.data;
+    try {
+      const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
+      const response = await axiosClient.post(`/v2/payments/${paymentId}/complete`, { txid });
+      return response.data;
+    } finally {
+      this.currentPayment = null;
+    }
   };
 
   public getPayment = async (paymentId: string): Promise<PaymentDTO> => {
@@ -65,9 +73,13 @@ export default class PiNetwork {
   };
 
   public cancelPayment = async (paymentId: string): Promise<PaymentDTO> => {
-    const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
-    const response = await axiosClient.post(`/v2/payments/${paymentId}/cancel`);
-    return response.data;
+    try {
+      const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
+      const response = await axiosClient.post(`/v2/payments/${paymentId}/cancel`);
+      return response.data;
+    } finally {
+      this.currentPayment = null;
+    }
   };
 
   public getIncompleteServerPayments = async (): Promise<Array<PaymentDTO>> => {
