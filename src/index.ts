@@ -1,40 +1,91 @@
 import * as StellarSdk from "stellar-sdk";
-import { NetworkPassphrase, PaymentArgs, PaymentDTO, TransactionData } from "./types";
+import { AxiosClientOptions, NetworkPassphrase, PaymentArgs, PaymentDTO, TransactionData } from "./types";
 import { getAxiosClient } from "./utils";
 
 export default class PiNetwork {
   private API_KEY: string;
   private myKeypair: StellarSdk.Keypair;
   private NETWORK_PASSPHRASE: NetworkPassphrase;
+  private currentPayment: PaymentDTO | null;
+  private axiosOptions: AxiosClientOptions | null;
 
-  constructor(apiKey: string, walletPrivateSeed: string) {
+  constructor(apiKey: string, walletPrivateSeed: string, options: AxiosClientOptions | null = null) {
     this.validateSeedFormat(walletPrivateSeed);
     this.API_KEY = apiKey;
     this.myKeypair = StellarSdk.Keypair.fromSecret(walletPrivateSeed);
+    this.axiosOptions = options;
   }
 
-  public createPayment = async (paymentData: PaymentArgs): Promise<PaymentDTO> => {
+  public createPayment = async (paymentData: PaymentArgs): Promise<string> => {
     this.validatePaymentData(paymentData);
 
-    const axiosClient = getAxiosClient(this.API_KEY);
+    const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
     const body = { payment: paymentData };
     const response = await axiosClient.post(`/v2/payments`, body);
-    const paymentIdentifier = response.data.identifier;
+    this.currentPayment = response.data;
 
-    const piHorizon = this.getHorizonClient(response.data.network);
+    return response.data.identifier;
+  };
 
-    const transactionData = {
-      amount: paymentData.amount,
-      paymentIdentifier,
-      fromAddress: response.data.from_address,
-      toAddress: response.data.to_address,
-    };
+  public submitPayment = async (paymentId: string): Promise<string> => {
+    try {
+      if (!this.currentPayment || this.currentPayment.identifier != paymentId) {
+        this.currentPayment = await this.getPayment(paymentId);
+      }
+  
+      const {
+        amount,
+        identifier: paymentIdentifier,
+        from_address: fromAddress,
+        to_address: toAddress,
+      } = this.currentPayment;
+  
+      const piHorizon = this.getHorizonClient(this.currentPayment.network);
+      const transactionData = {
+        amount,
+        paymentIdentifier,
+        fromAddress,
+        toAddress,
+      };
+  
+      const transaction = await this.buildA2UTransaction(piHorizon, transactionData);
+      const txid = await this.submitTransaction(piHorizon, transaction);
+      return txid;
+    } finally {
+      this.currentPayment = null;
+    }
+  };
 
-    const transaction = await this.buildA2UTransaction(piHorizon, transactionData);
-    const txid = await this.submitTransaction(piHorizon, transaction);
+  public completePayment = async (paymentId: string, txid: string): Promise<PaymentDTO> => {
+    try {
+      const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
+      const response = await axiosClient.post(`/v2/payments/${paymentId}/complete`, { txid });
+      return response.data;
+    } finally {
+      this.currentPayment = null;
+    }
+  };
 
-    const completedPayment = await this.completePayment(paymentIdentifier, txid);
-    return completedPayment;
+  public getPayment = async (paymentId: string): Promise<PaymentDTO> => {
+    const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
+    const response = await axiosClient.get(`/v2/payments/${paymentId}`);
+    return response.data;
+  };
+
+  public cancelPayment = async (paymentId: string): Promise<PaymentDTO> => {
+    try {
+      const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
+      const response = await axiosClient.post(`/v2/payments/${paymentId}/cancel`);
+      return response.data;
+    } finally {
+      this.currentPayment = null;
+    }
+  };
+
+  public getIncompleteServerPayments = async (): Promise<Array<PaymentDTO>> => {
+    const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
+    const response = await axiosClient.get("/v2/payments/incomplete_server_payments");
+    return response.data;
   };
 
   private validateSeedFormat = (seed: string): void => {
@@ -92,11 +143,5 @@ export default class PiNetwork {
     const txResponse = await piHorizon.submitTransaction(transaction);
     // @ts-ignore
     return txResponse.id;
-  };
-
-  private completePayment = async (paymentIdentifier: string, txid: string): Promise<PaymentDTO> => {
-    const axiosClient = getAxiosClient(this.API_KEY);
-    const response = await axiosClient.post(`/v2/payments/${paymentIdentifier}/complete`, { txid });
-    return response.data;
   };
 }

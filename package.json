@@ -1,9 +1,10 @@
 {
-  "name": "pi-network-node",
-  "version": "0.0.1",
+  "name": "pi-backend",
+  "version": "0.1.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "repository": "git@github.com:pi-apps/pi-nodejs-server-sdk.git",
+  "repository": "git@github.com:pi-apps/pi-nodejs.git",
+  "homepage": "https://github.com/pi-apps/pi-nodejs",
   "author": "Pi Core Team",
   "license": "PiOS",
   "scripts": {
@@ -13,6 +14,7 @@
     "typescript": "^4.9.4"
   },
   "dependencies": {
+    "axios": "^1.2.3",
     "stellar-sdk": "^10.4.1"
   }
 }
