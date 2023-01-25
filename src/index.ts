@@ -31,15 +31,20 @@ export default class PiNetwork {
     try {
       if (!this.currentPayment || this.currentPayment.identifier != paymentId) {
         this.currentPayment = await this.getPayment(paymentId);
+        const txid = this.currentPayment?.transaction?.txid;
+        if (txid) {
+          const errorObject = { message: "This payment already has a linked txid", paymentId, txid };
+          throw new Error(JSON.stringify(errorObject));
+        }
       }
-  
+
       const {
         amount,
         identifier: paymentIdentifier,
         from_address: fromAddress,
         to_address: toAddress,
       } = this.currentPayment;
-  
+
       const piHorizon = this.getHorizonClient(this.currentPayment.network);
       const transactionData = {
         amount,
@@ -47,7 +52,7 @@ export default class PiNetwork {
         fromAddress,
         toAddress,
       };
-  
+
       const transaction = await this.buildA2UTransaction(piHorizon, transactionData);
       const txid = await this.submitTransaction(piHorizon, transaction);
       return txid;
