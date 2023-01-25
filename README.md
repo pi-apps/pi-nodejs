@@ -27,12 +27,20 @@ const pi = new PiNetwork(apiKey, walletPrivateSeed);
 ```
 
 2. Create an A2U payment
+
+Make sure to store your payment data in your database. Here's an example of how you could keep track of the data.
+Consider this a database table example.
+
+| uid | product_id | amount | memo | payment_id | txid |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| `userUid` | apple-pie-1 | 3.14 | Refund for apple pie | NULL | NULL |
+
 ```javascript
 const userUid = "user_uid_of_your_app"
 const paymentData = {
   amount: 1,
-  memo: "From app to user test",
-  metadata: {test: "your metadata"},
+  memo: "Refund for apple pie",
+  metadata: {productId: "apple-pie-1"},
   uid: userUid
 }
 // It is critical that you store paymentId in your database
@@ -40,13 +48,29 @@ const paymentData = {
 const paymentId = await pi.createPayment(paymentData);
 ```
 
-3. Submit the payment to the Pi Blockchain
+3. Store the payment id in your database
+
+After creating the payment, you'll get `paymentId`, which you should be storing in your database.
+
+| uid | product_id | amount | memo | payment_id | txid |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| `userUid` | apple-pie-1 | 3.14 | Refund for apple pie | `paymentId` | NULL |
+
+4. Submit the payment to the Pi Blockchain
 ```javascript
 // It is strongly recommended that you store the txid along with the paymentId you stored earlier for your reference.
 const txid = await pi.submitPayment(paymentId);
 ```
 
-4. Complete the payment
+5. Store the txid om upir database
+
+Similarly as you did in step 3, keep the txid along with other data.
+
+| uid | product_id | amount | memo | payment_id | txid |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| `userUid` | apple-pie-1 | 3.14 | Refund for apple pie | `paymentId` | `txid` |
+
+6. Complete the payment
 ```javascript
 const completedPayment = await pi.completePayment(paymentId, txid);
 ```
