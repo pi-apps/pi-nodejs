@@ -39,7 +39,7 @@ Consider this a database table example.
 const userUid = "user_uid_of_your_app"
 const paymentData = {
   amount: 1,
-  memo: "Refund for apple pie",
+  memo: "Refund for apple pie", // this is just an example
   metadata: {productId: "apple-pie-1"},
   uid: userUid
 }
