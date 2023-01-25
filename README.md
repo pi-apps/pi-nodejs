@@ -48,7 +48,7 @@ const paymentData = {
 const paymentId = await pi.createPayment(paymentData);
 ```
 
-3. Store the payment id in your database
+3. Store the `paymentId` in your database
 
 After creating the payment, you'll get `paymentId`, which you should be storing in your database.
 
