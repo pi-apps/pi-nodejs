@@ -62,7 +62,7 @@ After creating the payment, you'll get `paymentId`, which you should be storing 
 const txid = await pi.submitPayment(paymentId);
 ```
 
-5. Store the txid om upir database
+5. Store the txid in your database
 
 Similarly as you did in step 3, keep the txid along with other data.
 
