@@ -35,11 +35,14 @@ const paymentData = {
   metadata: {test: "your metadata"},
   uid: userUid
 }
+// It is critical that you store paymentId in your database
+// so that you don't double-pay the same user, by keeping track of the payment.
 const paymentId = await pi.createPayment(paymentData);
 ```
 
 3. Submit the payment to the Pi Blockchain
 ```javascript
+// It is strongly recommended that you store the txid along with the paymentId you stored earlier for your reference.
 const txid = await pi.submitPayment(paymentId);
 ```
 
