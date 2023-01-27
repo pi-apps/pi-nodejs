@@ -18,7 +18,7 @@ yarn add pi-backend
 
 1. Initialize the SDK
 ```javascript
-import PiNetwork from 'pi-network-node';
+import PiNetwork from 'pi-backend';
 
 // DO NOT expose these values to public
 const apiKey = "YOUR_PI_API_KEY"
