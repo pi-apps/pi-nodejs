@@ -105,6 +105,9 @@ export default class PiNetwork {
     if (typeof seed !== "string") throw new Error("Wallet private seed must be a string");
     if (!seed.startsWith("S")) throw new Error("Wallet private seed must starts with 'S'");
     if (seed.length !== 56) throw new Error("Wallet private seed must be 56-character long");
+    if (!StellarSdk.StrKey.isValidEd25519SecretSeed(seed)) {
+      throw new Error("Invalid wallet private seed");
+    }
   };
 
   private validatePaymentData = (paymentData: unknown) => {
