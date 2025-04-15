@@ -148,7 +148,7 @@ export default class PiNetwork {
     const transaction = new StellarSdk.TransactionBuilder(myAccount, {
       fee: baseFee.toString(),
       networkPassphrase: network,
-      timebounds: await piHorizon.fetchTimebounds(180),
+      timebounds: await piHorizon.fetchTimebounds(config.PI_BACKEND_HORIZON_DEFAULT_TIMEBOUNDS),
     })
       .addOperation(paymentOperation)
       .addMemo(StellarSdk.Memo.text(transactionData.paymentIdentifier))

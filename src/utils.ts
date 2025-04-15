@@ -5,7 +5,7 @@ import { NetworkPassphrase } from "./types";
 export const createPlatformApiClient = (apiKey: string) => {
   const axiosClient = axios.create({
     baseURL: config.PI_BACKEND_PLATFORM_BASE_URL + "/v2",
-    timeout: 20000,
+    timeout: config.PI_BACKEND_HORIZON_TIMEOUT_MS,
     headers: { Authorization: `Key ${apiKey}`, "Content-Type": "application/json" },
   });
 
