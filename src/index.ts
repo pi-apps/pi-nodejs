@@ -21,7 +21,7 @@ export default class PiNetwork {
   public createPayment = async (payment: PaymentArgs): Promise<string> => {
     this.validatePaymentData(payment);
 
-    const response = await this.api.post<PaymentDTO>(`/v2/payments`, { payment });
+    const response = await this.api.post<PaymentDTO>(`/payments`, { payment });
     this.currentPayment = response.data;
 
     return response.data.identifier;
@@ -34,7 +34,6 @@ export default class PiNetwork {
         const txid = this.currentPayment.transaction?.txid;
 
         if (txid) {
-          /** @MAJOR_UPDATE_NEEDED */
           /** @TODO Below message format is inconsistent with the Error(<message>) format */
           // const errorObject = {
           //   message: "This payment already has a linked txid",
@@ -75,7 +74,7 @@ export default class PiNetwork {
 
   public completePayment = async (paymentId: string, txid: string): Promise<PaymentDTO> => {
     try {
-      const response = await this.api.post<PaymentDTO>(`/v2/payments/${paymentId}/complete`, { txid });
+      const response = await this.api.post<PaymentDTO>(`/payments/${paymentId}/complete`, { txid });
       return response.data;
     } finally {
       this.currentPayment = null;
@@ -83,13 +82,13 @@ export default class PiNetwork {
   };
 
   public getPayment = async (paymentId: string): Promise<PaymentDTO> => {
-    const response = await this.api.get<PaymentDTO>(`/v2/payments/${paymentId}`);
+    const response = await this.api.get<PaymentDTO>(`/payments/${paymentId}`);
     return response.data;
   };
 
   public cancelPayment = async (paymentId: string): Promise<PaymentDTO> => {
     try {
-      const response = await this.api.post<PaymentDTO>(`/v2/payments/${paymentId}/cancel`);
+      const response = await this.api.post<PaymentDTO>(`/payments/${paymentId}/cancel`);
       return response.data;
     } finally {
       this.currentPayment = null;
@@ -98,7 +97,7 @@ export default class PiNetwork {
 
   public getIncompleteServerPayments = async (): Promise<Array<PaymentDTO>> => {
     const response = await this.api.get<{ incomplete_server_paymenets: Array<PaymentDTO> }>(
-      "/v2/payments/incomplete_server_payments"
+      "/payments/incomplete_server_payments"
     );
 
     /** @MAJOR_UPDATE_NEEDED This place was mistyped (missing incomplete_server_payments field) */
