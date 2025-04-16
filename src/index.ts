@@ -120,8 +120,8 @@ export default class PiNetwork {
     if (typeof paymentData !== "object" || paymentData === null) throw new Error("Payment data must be an object");
     if (!("amount" in paymentData)) throw new Error("Missing amount");
     if (typeof paymentData.amount !== "number") throw new Error("Amount must be a number");
-    if (!("paymentIdentifier" in paymentData)) throw new Error("Missing payment identifier");
-    if (typeof paymentData.paymentIdentifier !== "string") throw new Error("Payment identifier must be a string");
+    if (!("memo" in paymentData)) throw new Error("Missing memo");
+    if (typeof paymentData.memo !== "string") throw new Error("Memo must be a string");
     if (!("fromAddress" in paymentData)) throw new Error("Missing from address");
     if (typeof paymentData.fromAddress !== "string") throw new Error("From address must be a string");
     if (!("toAddress" in paymentData)) throw new Error("Missing to address");
