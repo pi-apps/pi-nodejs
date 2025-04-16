@@ -1,6 +1,13 @@
 import * as StellarSdk from "stellar-sdk";
-import { AxiosClientOptions, NetworkPassphrase, PaymentArgs, PaymentDTO, TransactionData } from "./types";
+import {
+  AxiosClientOptions,
+  NetworkPassphrase,
+  PaymentArgs,
+  PaymentDTO,
+  TransactionData,
+} from "./types";
 import { getAxiosClient } from "./utils";
+import { config } from "./config";
 
 export default class PiNetwork {
   private API_KEY: string;
@@ -9,7 +16,11 @@ export default class PiNetwork {
   private currentPayment: PaymentDTO | null;
   private axiosOptions: AxiosClientOptions | null;
 
-  constructor(apiKey: string, walletPrivateSeed: string, options: AxiosClientOptions | null = null) {
+  constructor(
+    apiKey: string,
+    walletPrivateSeed: string,
+    options: AxiosClientOptions | null = null
+  ) {
     this.validateSeedFormat(walletPrivateSeed);
     this.API_KEY = apiKey;
     this.myKeypair = StellarSdk.Keypair.fromSecret(walletPrivateSeed);
@@ -33,7 +44,11 @@ export default class PiNetwork {
         this.currentPayment = await this.getPayment(paymentId);
         const txid = this.currentPayment?.transaction?.txid;
         if (txid) {
-          const errorObject = { message: "This payment already has a linked txid", paymentId, txid };
+          const errorObject = {
+            message: "This payment already has a linked txid",
+            paymentId,
+            txid,
+          };
           throw new Error(JSON.stringify(errorObject));
         }
       }
@@ -53,7 +68,10 @@ export default class PiNetwork {
         toAddress,
       };
 
-      const transaction = await this.buildA2UTransaction(piHorizon, transactionData);
+      const transaction = await this.buildA2UTransaction(
+        piHorizon,
+        transactionData
+      );
       const txid = await this.submitTransaction(piHorizon, transaction);
       return txid;
     } finally {
@@ -61,10 +79,16 @@ export default class PiNetwork {
     }
   };
 
-  public completePayment = async (paymentId: string, txid: string): Promise<PaymentDTO> => {
+  public completePayment = async (
+    paymentId: string,
+    txid: string
+  ): Promise<PaymentDTO> => {
     try {
       const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
-      const response = await axiosClient.post(`/v2/payments/${paymentId}/complete`, { txid });
+      const response = await axiosClient.post(
+        `/v2/payments/${paymentId}/complete`,
+        { txid }
+      );
       return response.data;
     } finally {
       this.currentPayment = null;
@@ -80,7 +104,9 @@ export default class PiNetwork {
   public cancelPayment = async (paymentId: string): Promise<PaymentDTO> => {
     try {
       const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
-      const response = await axiosClient.post(`/v2/payments/${paymentId}/cancel`);
+      const response = await axiosClient.post(
+        `/v2/payments/${paymentId}/cancel`
+      );
       return response.data;
     } finally {
       this.currentPayment = null;
@@ -89,13 +115,17 @@ export default class PiNetwork {
 
   public getIncompleteServerPayments = async (): Promise<Array<PaymentDTO>> => {
     const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
-    const response = await axiosClient.get("/v2/payments/incomplete_server_payments");
+    const response = await axiosClient.get(
+      "/v2/payments/incomplete_server_payments"
+    );
     return response.data;
   };
 
   private validateSeedFormat = (seed: string): void => {
-    if (!seed.startsWith("S")) throw new Error("Wallet private seed must starts with 'S'");
-    if (seed.length !== 56) throw new Error("Wallet private seed must be 56-character long");
+    if (!seed.startsWith("S"))
+      throw new Error("Wallet private seed must starts with 'S'");
+    if (seed.length !== 56)
+      throw new Error("Wallet private seed must be 56-character long");
   };
 
   private validatePaymentData = (paymentData: PaymentArgs): void => {
@@ -105,9 +135,14 @@ export default class PiNetwork {
     if (!paymentData.uid) throw new Error("Missing uid");
   };
 
-  private getHorizonClient = (network: NetworkPassphrase): StellarSdk.Server => {
+  private getHorizonClient = (
+    network: NetworkPassphrase
+  ): StellarSdk.Server => {
     this.NETWORK_PASSPHRASE = network;
-    const serverUrl = network === "Pi Network" ? "https://api.mainnet.minepi.com" : "https://api.testnet.minepi.com";
+    const serverUrl =
+      network === "Pi Network"
+        ? "https://api.mainnet.minepi.com"
+        : "https://api.testnet.minepi.com";
     return new StellarSdk.Server(serverUrl);
   };
 
