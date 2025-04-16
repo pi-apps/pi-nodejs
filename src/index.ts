@@ -1,27 +1,27 @@
 import * as StellarSdk from "stellar-sdk";
-import { AxiosClientOptions, NetworkPassphrase, PaymentArgs, PaymentDTO, TransactionData } from "./types";
-import { getAxiosClient } from "./utils";
+import { NetworkPassphrase, PaymentArgs, PaymentDTO, TransactionData } from "./types";
+import { createPlatformApiClient, isMainnet } from "./utils";
+import { AxiosInstance } from "axios";
+import { config } from "config";
 
 export default class PiNetwork {
-  private API_KEY: string;
+  private api: AxiosInstance;
   private myKeypair: StellarSdk.Keypair;
   private NETWORK_PASSPHRASE: NetworkPassphrase;
   private currentPayment: PaymentDTO | null;
-  private axiosOptions: AxiosClientOptions | null;
 
-  constructor(apiKey: string, walletPrivateSeed: string, options: AxiosClientOptions | null = null) {
+  constructor(apiKey: string, walletPrivateSeed: string) {
     this.validateSeedFormat(walletPrivateSeed);
-    this.API_KEY = apiKey;
+    this.validateApiKey(apiKey);
+
     this.myKeypair = StellarSdk.Keypair.fromSecret(walletPrivateSeed);
-    this.axiosOptions = options;
+    this.api = createPlatformApiClient(apiKey);
   }
 
-  public createPayment = async (paymentData: PaymentArgs): Promise<string> => {
-    this.validatePaymentData(paymentData);
+  public createPayment = async (payment: PaymentArgs): Promise<string> => {
+    this.validatePaymentData(payment);
 
-    const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
-    const body = { payment: paymentData };
-    const response = await axiosClient.post(`/v2/payments`, body);
+    const response = await this.api.post<PaymentDTO>(`/v2/payments`, { payment });
     this.currentPayment = response.data;
 
     return response.data.identifier;
@@ -31,14 +31,22 @@ export default class PiNetwork {
     try {
       if (!this.currentPayment || this.currentPayment.identifier != paymentId) {
         this.currentPayment = await this.getPayment(paymentId);
-        const txid = this.currentPayment?.transaction?.txid;
+        const txid = this.currentPayment.transaction?.txid;
+
         if (txid) {
-          const errorObject = {
-            message: "This payment already has a linked txid",
-            paymentId,
-            txid,
-          };
-          throw new Error(JSON.stringify(errorObject));
+          /** @MAJOR_UPDATE_NEEDED */
+          /** @TODO Below message format is inconsistent with the Error(<message>) format */
+          // const errorObject = {
+          //   message: "This payment already has a linked txid",
+          //   paymentId,
+          //   txid,
+          // };
+          const error = new Error("This payment already has a linked txid");
+          // @ts-expect-error ...
+          error.paymentId = paymentId;
+          // @ts-expect-error ...
+          error.txid = txid;
+          throw error;
         }
       }
 
@@ -67,8 +75,7 @@ export default class PiNetwork {
 
   public completePayment = async (paymentId: string, txid: string): Promise<PaymentDTO> => {
     try {
-      const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
-      const response = await axiosClient.post(`/v2/payments/${paymentId}/complete`, { txid });
+      const response = await this.api.post<PaymentDTO>(`/v2/payments/${paymentId}/complete`, { txid });
       return response.data;
     } finally {
       this.currentPayment = null;
@@ -76,15 +83,13 @@ export default class PiNetwork {
   };
 
   public getPayment = async (paymentId: string): Promise<PaymentDTO> => {
-    const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
-    const response = await axiosClient.get(`/v2/payments/${paymentId}`);
+    const response = await this.api.get<PaymentDTO>(`/v2/payments/${paymentId}`);
     return response.data;
   };
 
   public cancelPayment = async (paymentId: string): Promise<PaymentDTO> => {
     try {
-      const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
-      const response = await axiosClient.post(`/v2/payments/${paymentId}/cancel`);
+      const response = await this.api.post<PaymentDTO>(`/v2/payments/${paymentId}/cancel`);
       return response.data;
     } finally {
       this.currentPayment = null;
@@ -92,26 +97,43 @@ export default class PiNetwork {
   };
 
   public getIncompleteServerPayments = async (): Promise<Array<PaymentDTO>> => {
-    const axiosClient = getAxiosClient(this.API_KEY, this.axiosOptions);
-    const response = await axiosClient.get("/v2/payments/incomplete_server_payments");
-    return response.data;
+    const response = await this.api.get<{ incomplete_server_paymenets: Array<PaymentDTO> }>(
+      "/v2/payments/incomplete_server_payments"
+    );
+
+    /** @MAJOR_UPDATE_NEEDED This place was mistyped (missing incomplete_server_payments field) */
+    return response.data.incomplete_server_paymenets;
   };
 
-  private validateSeedFormat = (seed: string): void => {
+  private validateApiKey = (apiKey: unknown) => {
+    if (!apiKey) throw new Error("Missing API key");
+    if (typeof apiKey !== "string") throw new Error("API key must be a string");
+  };
+
+  private validateSeedFormat = (seed: unknown) => {
+    if (!seed) throw new Error("Missing wallet private seed");
+    if (typeof seed !== "string") throw new Error("Wallet private seed must be a string");
     if (!seed.startsWith("S")) throw new Error("Wallet private seed must starts with 'S'");
     if (seed.length !== 56) throw new Error("Wallet private seed must be 56-character long");
   };
 
-  private validatePaymentData = (paymentData: PaymentArgs): void => {
-    if (!paymentData.amount) throw new Error("Missing amount");
-    if (!paymentData.memo) throw new Error("Missing memo");
-    if (!paymentData.metadata) throw new Error("Missing metadata");
-    if (!paymentData.uid) throw new Error("Missing uid");
+  private validatePaymentData = (paymentData: unknown) => {
+    if (typeof paymentData !== "object" || paymentData === null) throw new Error("Payment data must be an object");
+    if (!("amount" in paymentData)) throw new Error("Missing amount");
+    if (typeof paymentData.amount !== "number") throw new Error("Amount must be a number");
+    if (!("paymentIdentifier" in paymentData)) throw new Error("Missing payment identifier");
+    if (typeof paymentData.paymentIdentifier !== "string") throw new Error("Payment identifier must be a string");
+    if (!("fromAddress" in paymentData)) throw new Error("Missing from address");
+    if (typeof paymentData.fromAddress !== "string") throw new Error("From address must be a string");
+    if (!("toAddress" in paymentData)) throw new Error("Missing to address");
+    if (typeof paymentData.toAddress !== "string") throw new Error("To address must be a string");
   };
 
-  private getHorizonClient = (network: NetworkPassphrase): StellarSdk.Server => {
+  private getHorizonClient = (network: NetworkPassphrase) => {
     this.NETWORK_PASSPHRASE = network;
-    const serverUrl = network === "Pi Network" ? "https://api.mainnet.minepi.com" : "https://api.testnet.minepi.com";
+    const serverUrl = isMainnet(network)
+      ? config.PI_BACKEND_HORIZON_MAINNET_URL
+      : config.PI_BACKEND_HORIZON_TESTNET_URL;
     return new StellarSdk.Server(serverUrl);
   };
 
