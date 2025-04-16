@@ -1,8 +1,8 @@
 import * as StellarSdk from "stellar-sdk";
 import { NetworkPassphrase, PaymentArgs, PaymentDTO, TransactionData } from "./types";
 import { createPlatformApiClient, isMainnet } from "./utils";
+import { config } from "./config";
 import { AxiosInstance } from "axios";
-import { config } from "config";
 
 export default class PiNetwork {
   private api: AxiosInstance;

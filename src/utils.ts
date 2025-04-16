@@ -1,6 +1,6 @@
 import axios from "axios";
-import { config } from "config";
-import { NetworkPassphrase } from "types";
+import { config } from "./config";
+import { NetworkPassphrase } from "./types";
 
 export const createPlatformApiClient = (apiKey: string) => {
   const axiosClient = axios.create({

@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import path from "path";
 
 export const dotenvConfig = dotenv.config({
-  path: path.resolve(__dirname, "../.env"),
+  path: path.resolve(__dirname, "../.env.development"),
 }).parsed;
 
 if (!dotenvConfig) {
