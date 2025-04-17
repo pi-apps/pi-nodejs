@@ -7,8 +7,8 @@ import { AxiosInstance } from "axios";
 export default class PiNetwork {
   private api: AxiosInstance;
   private myKeypair: StellarSdk.Keypair;
-  private NETWORK_PASSPHRASE: NetworkPassphrase;
-  private currentPayment: PaymentDTO | null;
+  private NETWORK_PASSPHRASE: NetworkPassphrase | null = null;
+  private currentPayment: PaymentDTO | null = null;
 
   constructor(apiKey: string, walletPrivateSeed: string) {
     this.validateSeedFormat(walletPrivateSeed);
@@ -152,6 +152,10 @@ export default class PiNetwork {
       asset: StellarSdk.Asset.native(),
       amount: transactionData.amount.toString(),
     });
+
+    if (!this.NETWORK_PASSPHRASE) {
+      throw new Error("Network passphrase is not set");
+    }
 
     const transaction = new StellarSdk.TransactionBuilder(myAccount, {
       fee: baseFee.toString(),

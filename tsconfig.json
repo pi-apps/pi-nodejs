@@ -9,11 +9,16 @@
     "moduleResolution": "node",
     "esModuleInterop": true,
     "declaration": true,
+    "strict": true,
+    "strictNullChecks": true,
     "lib": [
       // "esnext"
       "es6",
       "dom"
     ],
-    "strictNullChecks": true,
-  }
+    "declarationDir": "./dist",
+    "rootDir": "./src",
+    "composite": false
+  },
+  "exclude": ["esbuild.ts", "dist"]
 }

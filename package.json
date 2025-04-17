@@ -8,12 +8,12 @@
   "author": "Pi Core Team",
   "license": "PiOS",
   "scripts": {
-    "build:types": "tsc --emitDeclarationOnly --outDir dist",
-    "build:js": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --define:process.env.PI_ENV='\"production\"'",
     "build": "yarn build:types && yarn build:js",
-    "dev:types": "tsc --emitDeclarationOnly --outDir dist --watch",
-    "dev:js": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --watch --define:process.env.PI_ENV='\"development\"'",
+    "build:js": "PI_ENV=production tsx esbuild.ts",
+    "build:types": "tsc --emitDeclarationOnly --outDir dist",
     "dev": "concurrently \"yarn dev:types\" \"yarn dev:js\"",
+    "dev:js": "PI_ENV=development tsx esbuild.ts --watch",
+    "dev:types": "tsc --emitDeclarationOnly --outDir dist --watch",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\""
