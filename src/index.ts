@@ -1,4 +1,4 @@
-import * as StellarSdk from "stellar-sdk";
+import * as StellarSdk from "@stellar/stellar-sdk";
 import { NetworkPassphrase, PaymentArgs, PaymentDTO, TransactionData } from "./types";
 import { createPlatformApiClient, isMainnet } from "./utils";
 import { config } from "./config";
@@ -133,11 +133,11 @@ export default class PiNetwork {
     const serverUrl = isMainnet(network)
       ? config.PI_BACKEND_HORIZON_MAINNET_URL
       : config.PI_BACKEND_HORIZON_TESTNET_URL;
-    return new StellarSdk.Server(serverUrl);
+    return new StellarSdk.Horizon.Server(serverUrl);
   };
 
   private buildA2UTransaction = async (
-    piHorizon: StellarSdk.Server,
+    piHorizon: StellarSdk.Horizon.Server,
     transactionData: TransactionData
   ): Promise<StellarSdk.Transaction> => {
     if (transactionData.fromAddress !== this.myKeypair.publicKey()) {
@@ -171,11 +171,11 @@ export default class PiNetwork {
   };
 
   private submitTransaction = async (
-    piHorizon: StellarSdk.Server,
+    piHorizon: StellarSdk.Horizon.Server,
     transaction: StellarSdk.Transaction
   ): Promise<string> => {
     const txResponse = await piHorizon.submitTransaction(transaction);
-    // @ts-expect-error StellarSdk.Horizon.TransactionResponse.id is misstyped
+    // @ts-expect-error StellarSdk.Horizon.HorizonApi.TransactionResponse.id is misstyped
     return txResponse.id;
   };
 }
