@@ -2,11 +2,11 @@ import dotenv from "dotenv";
 import path from "path";
 
 export const dotenvConfig = dotenv.config({
-  path: path.resolve(__dirname, "../.env.development"),
+  path: path.resolve(__dirname, `../.env.${process.env.PI_ENV}`),
 }).parsed;
 
 if (!dotenvConfig) {
-  throw new Error("Failed to load .env file");
+  throw new Error(`Failed to load .env file`);
 }
 
 type Config = {
