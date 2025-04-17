@@ -18,7 +18,9 @@
     ],
     "declarationDir": "./dist",
     "rootDir": "./src",
-    "composite": false
+    "composite": false,
+    "emitDeclarationOnly": true,
+    "skipLibCheck": true
   },
   "exclude": ["esbuild.ts", "dist"]
 }
