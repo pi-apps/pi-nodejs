@@ -148,6 +148,10 @@ export default class PiNetwork {
       amount: transactionData.amount.toString(),
     });
 
+    if (!this.NETWORK_PASSPHRASE) {
+      throw new Error("Network passphrase is not set");
+    }
+
     const transaction = new StellarSdk.TransactionBuilder(myAccount, {
       fee: baseFee.toString(),
       networkPassphrase: network,
