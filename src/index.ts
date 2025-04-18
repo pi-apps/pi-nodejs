@@ -94,7 +94,7 @@ export default class PiNetwork {
     );
 
     /** @MAJOR_UPDATE_NEEDED This place was mistyped (missing incomplete_server_payments field) */
-    return response.data.incomplete_server_paymenets;
+    return response.data.incomplete_server_payments;
   };
 
   private validateApiKey = (apiKey: unknown) => {
