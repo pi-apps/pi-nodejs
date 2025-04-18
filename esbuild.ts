@@ -9,7 +9,7 @@ const buildOptions: esbuild.BuildOptions = {
   minify: process.env.PI_ENV === "production",
   treeShaking: true,
   platform: "node",
-  format: "cjs",
+  format: "esm",
   target: "node16",
   define: {
     "process.env.PI_ENV": `"${process.env.PI_ENV || "development"}"`,
