@@ -7,7 +7,6 @@ import { AxiosInstance } from "axios";
 export default class PiNetwork {
   private api: AxiosInstance;
   private myKeypair: StellarSdk.Keypair;
-  private NETWORK_PASSPHRASE: NetworkPassphrase | null = null;
   private currentPayment: PaymentDTO | null = null;
 
   constructor(apiKey: string, walletPrivateSeed: string) {
@@ -64,7 +63,7 @@ export default class PiNetwork {
         toAddress,
       };
 
-      const transaction = await this.buildA2UTransaction(piHorizon, transactionData);
+      const transaction = await this.buildA2UTransaction(piHorizon, transactionData, this.currentPayment.network);
       const txid = await this.submitTransaction(piHorizon, transaction);
       return txid;
     } finally {
@@ -130,7 +129,6 @@ export default class PiNetwork {
   };
 
   private getHorizonClient = (network: NetworkPassphrase) => {
-    this.NETWORK_PASSPHRASE = network;
     const serverUrl = isMainnet(network)
       ? config.PI_BACKEND_HORIZON_MAINNET_URL
       : config.PI_BACKEND_HORIZON_TESTNET_URL;
@@ -139,7 +137,8 @@ export default class PiNetwork {
 
   private buildA2UTransaction = async (
     piHorizon: StellarSdk.Horizon.Server,
-    transactionData: TransactionData
+    transactionData: TransactionData,
+    network: NetworkPassphrase
   ): Promise<StellarSdk.Transaction> => {
     if (transactionData.fromAddress !== this.myKeypair.publicKey()) {
       throw new Error("You should use a private seed of your app wallet!");
@@ -154,13 +153,9 @@ export default class PiNetwork {
       amount: transactionData.amount.toString(),
     });
 
-    if (!this.NETWORK_PASSPHRASE) {
-      throw new Error("Network passphrase is not set");
-    }
-
     const transaction = new StellarSdk.TransactionBuilder(myAccount, {
       fee: baseFee.toString(),
-      networkPassphrase: this.NETWORK_PASSPHRASE,
+      networkPassphrase: network,
       timebounds: await piHorizon.fetchTimebounds(180),
     })
       .addOperation(paymentOperation)
