@@ -33,12 +33,6 @@ export default class PiNetwork {
         const txid = this.currentPayment.transaction?.txid;
 
         if (txid) {
-          /** @TODO Below message format is inconsistent with the Error(<message>) format */
-          // const errorObject = {
-          //   message: "This payment already has a linked txid",
-          //   paymentId,
-          //   txid,
-          // };
           const error = new Error("This payment already has a linked txid");
           // @ts-expect-error ...
           error.paymentId = paymentId;
