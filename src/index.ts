@@ -2,7 +2,8 @@ import * as StellarSdk from "@stellar/stellar-sdk";
 import { NetworkPassphrase, PaymentArgs, PaymentDTO, TransactionData } from "./types";
 import { createPlatformApiClient, isMainnet } from "./utils";
 import { config } from "./config";
-import { AxiosInstance } from "axios";
+import { AxiosInstance, isAxiosError } from "axios";
+import { PiPaymentError } from "PiPaymentError";
 
 export default class PiNetwork {
   private api: AxiosInstance;
@@ -20,10 +21,18 @@ export default class PiNetwork {
   public createPayment = async (payment: PaymentArgs): Promise<string> => {
     this.validatePaymentData(payment);
 
-    const response = await this.api.post<PaymentDTO>(`/payments`, { payment });
-    this.currentPayment = response.data;
+    try {
+      const response = await this.api.post<PaymentDTO>(`/payments`, { payment });
+      this.currentPayment = response.data;
 
-    return response.data.identifier;
+      return response.data.identifier;
+    } catch (err) {
+      if (isAxiosError(err)) {
+        throw new PiPaymentError(err.response?.data.code, { paymentId: payment.uid });
+      }
+
+      throw err;
+    }
   };
 
   public submitPayment = async (paymentId: string): Promise<string> => {
@@ -33,12 +42,7 @@ export default class PiNetwork {
         const txid = this.currentPayment.transaction?.txid;
 
         if (txid) {
-          const error = new Error("This payment already has a linked txid");
-          // @ts-expect-error ...
-          error.paymentId = paymentId;
-          // @ts-expect-error ...
-          error.txid = txid;
-          throw error;
+          throw new PiPaymentError("payment_already_has_linked_txid", { paymentId, txid });
         }
       }
 
@@ -96,31 +100,29 @@ export default class PiNetwork {
   };
 
   private validateApiKey = (apiKey: unknown) => {
-    if (!apiKey) throw new Error("Missing API key");
-    if (typeof apiKey !== "string") throw new Error("API key must be a string");
+    if (!apiKey) throw new PiPaymentError("missing_api_key");
+    if (typeof apiKey !== "string") throw new PiPaymentError("api_key_not_string");
   };
 
   private validateSeedFormat = (seed: unknown) => {
-    if (!seed) throw new Error("Missing wallet private seed");
-    if (typeof seed !== "string") throw new Error("Wallet private seed must be a string");
-    if (!seed.startsWith("S")) throw new Error("Wallet private seed must starts with 'S'");
-    if (seed.length !== 56) throw new Error("Wallet private seed must be 56-character long");
-    if (!StellarSdk.StrKey.isValidEd25519SecretSeed(seed)) {
-      throw new Error("Invalid wallet private seed");
-    }
+    if (!seed) throw new PiPaymentError("missing_wallet_private_seed");
+    if (typeof seed !== "string") throw new PiPaymentError("wallet_private_seed_not_string");
+    if (!seed.startsWith("S")) throw new PiPaymentError("wallet_private_seed_not_starts_with_S");
+    if (seed.length !== 56) throw new PiPaymentError("wallet_private_seed_not_56_chars_long");
+    if (!StellarSdk.StrKey.isValidEd25519SecretSeed(seed)) throw new Error("Invalid wallet private seed");
   };
 
   private validatePaymentData = (paymentData: unknown) => {
-    if (typeof paymentData !== "object" || paymentData === null) throw new Error("Payment data must be an object");
-    if (!("amount" in paymentData)) throw new Error("Missing amount");
-    if (typeof paymentData.amount !== "number") throw new Error("Amount must be a number");
-    if (!("memo" in paymentData)) throw new Error("Missing memo");
-    if (typeof paymentData.memo !== "string") throw new Error("Memo must be a string");
-    if (!("metadata" in paymentData)) throw new Error("Missing metadata");
+    if (typeof paymentData !== "object" || paymentData === null) throw new PiPaymentError("payment_data_not_object");
+    if (!("amount" in paymentData)) throw new PiPaymentError("missing_amount");
+    if (typeof paymentData.amount !== "number") throw new PiPaymentError("amount_not_number");
+    if (!("memo" in paymentData)) throw new PiPaymentError("missing_memo");
+    if (typeof paymentData.memo !== "string") throw new PiPaymentError("memo_not_string");
+    if (!("metadata" in paymentData)) throw new PiPaymentError("missing_metadata");
     if (typeof paymentData.metadata !== "object" || paymentData.metadata === null)
-      throw new Error("Metadata must be an object");
-    if (!("uid" in paymentData)) throw new Error("Missing uid");
-    if (typeof paymentData.uid !== "string") throw new Error("Uid must be a string");
+      throw new PiPaymentError("metadata_not_object");
+    if (!("uid" in paymentData)) throw new PiPaymentError("missing_uid");
+    if (typeof paymentData.uid !== "string") throw new PiPaymentError("uid_not_string");
   };
 
   private getHorizonClient = (network: NetworkPassphrase) => {
@@ -136,7 +138,7 @@ export default class PiNetwork {
     network: NetworkPassphrase
   ): Promise<StellarSdk.Transaction> => {
     if (transactionData.fromAddress !== this.myKeypair.publicKey()) {
-      throw new Error("You should use a private seed of your app wallet!");
+      throw new PiPaymentError("private_seed_mismatch");
     }
 
     const myAccount = await piHorizon.loadAccount(this.myKeypair.publicKey());
