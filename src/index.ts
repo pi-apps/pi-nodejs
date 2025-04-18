@@ -3,7 +3,8 @@ import { NetworkPassphrase, PaymentArgs, PaymentDTO, TransactionData } from "./t
 import { createPlatformApiClient, isMainnet } from "./utils";
 import { config } from "./config";
 import { AxiosInstance, isAxiosError } from "axios";
-import { PiPaymentError } from "PiPaymentError";
+import { PiPaymentError } from "./PiPaymentError";
+import { PiPaymentApiCancelError, PiPaymentApiCompleteError, PiPaymentApiCreateError } from "./types/errors";
 
 export default class PiNetwork {
   private api: AxiosInstance;
@@ -19,19 +20,27 @@ export default class PiNetwork {
   }
 
   public createPayment = async (payment: PaymentArgs): Promise<string> => {
-    this.validatePaymentData(payment);
-
     try {
+      this.validatePaymentData(payment);
+
       const response = await this.api.post<PaymentDTO>(`/payments`, { payment });
       this.currentPayment = response.data;
 
       return response.data.identifier;
     } catch (err) {
-      if (isAxiosError(err)) {
-        throw new PiPaymentError(err.response?.data.code, { paymentId: payment.uid });
+      if (err instanceof PiPaymentError) {
+        throw err;
       }
 
-      throw err;
+      if (isAxiosError<PiPaymentApiCreateError>(err) && err.response?.data.error) {
+        throw new PiPaymentError(err.response?.data.error, {
+          messageOverride: err.response.data.error_message,
+          data:
+            err.response.data.error === "ongoing_payment_found" ? { payment: err.response.data.payment } : undefined,
+        });
+      }
+
+      throw new PiPaymentError("unknown_error");
     }
   };
 
@@ -42,7 +51,7 @@ export default class PiNetwork {
         const txid = this.currentPayment.transaction?.txid;
 
         if (txid) {
-          throw new PiPaymentError("payment_already_has_linked_txid", { paymentId, txid });
+          throw new PiPaymentError("payment_already_has_linked_txid", { data: { paymentId, txid } });
         }
       }
 
@@ -64,6 +73,12 @@ export default class PiNetwork {
       const transaction = await this.buildA2UTransaction(piHorizon, transactionData, this.currentPayment.network);
       const txid = await this.submitTransaction(piHorizon, transaction);
       return txid;
+    } catch (err) {
+      if (err instanceof PiPaymentError) {
+        throw err;
+      }
+
+      throw new PiPaymentError("unknown_error");
     } finally {
       this.currentPayment = null;
     }
@@ -73,30 +88,67 @@ export default class PiNetwork {
     try {
       const response = await this.api.post<PaymentDTO>(`/payments/${paymentId}/complete`, { txid });
       return response.data;
+    } catch (err) {
+      if (isAxiosError<PiPaymentApiCompleteError>(err) && err.response?.data) {
+        throw new PiPaymentError(err.response.data.error, {
+          messageOverride: err.response.data.error_message,
+          data:
+            err.response.data.error === "verification_failed"
+              ? { verification_error: err.response.data.verification_error }
+              : undefined,
+        });
+      }
+      throw new PiPaymentError("unknown_error");
     } finally {
       this.currentPayment = null;
     }
   };
 
   public getPayment = async (paymentId: string): Promise<PaymentDTO> => {
-    const response = await this.api.get<PaymentDTO>(`/payments/${paymentId}`);
-    return response.data;
+    try {
+      const response = await this.api.get<PaymentDTO>(`/payments/${paymentId}`);
+      return response.data;
+    } catch (err) {
+      if (isAxiosError<{ error: "payment_not_found"; error_message: string }>(err) && err.response?.data.error) {
+        throw new PiPaymentError(err.response.data.error, {
+          messageOverride: err.response.data.error_message,
+        });
+      }
+      throw new PiPaymentError("unknown_error");
+    }
   };
 
   public cancelPayment = async (paymentId: string): Promise<PaymentDTO> => {
     try {
       const response = await this.api.post<PaymentDTO>(`/payments/${paymentId}/cancel`);
       return response.data;
+    } catch (err) {
+      if (isAxiosError<PiPaymentApiCancelError>(err) && err.response?.data) {
+        throw new PiPaymentError(err.response.data.error, {
+          messageOverride: err.response.data.error_message,
+          data:
+            err.response.data.error === "forbidden" ||
+            err.response.data.error === "already_completed" ||
+            err.response.data.error === "cancelled_payment"
+              ? { payment: err.response.data.payment }
+              : undefined,
+        });
+      }
+      throw new PiPaymentError("unknown_error");
     } finally {
       this.currentPayment = null;
     }
   };
 
   public getIncompleteServerPayments = async (): Promise<Array<PaymentDTO>> => {
-    const response = await this.api.get<{ incomplete_server_payments: Array<PaymentDTO> }>(
-      "/payments/incomplete_server_payments"
-    );
-    return response.data.incomplete_server_payments;
+    try {
+      const response = await this.api.get<{ incomplete_server_paymenets: Array<PaymentDTO> }>(
+        "/payments/incomplete_server_payments"
+      );
+      return response.data.incomplete_server_paymenets;
+    } catch (err) {
+      throw new PiPaymentError("unknown_error");
+    }
   };
 
   private validateApiKey = (apiKey: unknown) => {
@@ -172,3 +224,5 @@ export default class PiNetwork {
     return txResponse.id;
   };
 }
+
+export { PiPaymentError };

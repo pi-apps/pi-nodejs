@@ -1,4 +1,12 @@
-type PiPaymentErrorCode =
+import { PaymentDTO } from "./types";
+import {
+  PiPaymentApiValidationErrorCode,
+  PiPaymentApiCreateErrorCode,
+  PiPaymentApiCompleteErrorCode,
+  PiPaymentApiCancelErrorCode,
+} from "./types/errors";
+
+export type PiPaymentSdkErrorCode =
   | "payment_already_has_linked_txid"
   | "missing_api_key"
   | "api_key_not_string"
@@ -17,12 +25,15 @@ type PiPaymentErrorCode =
   | "uid_not_string"
   | "private_seed_mismatch";
 
-type PiPaymentErrorAdditionalData = {
-  paymentId?: string;
-  txid?: string;
-};
+export type PiPaymentApiErrorCode =
+  | PiPaymentApiValidationErrorCode
+  | PiPaymentApiCreateErrorCode
+  | PiPaymentApiCompleteErrorCode
+  | PiPaymentApiCancelErrorCode;
 
-const errorMessages: Record<PiPaymentErrorCode, string> = {
+export type PiPaymentErrorCode = PiPaymentSdkErrorCode | PiPaymentApiErrorCode;
+
+const errorMessages: Record<PiPaymentSdkErrorCode, string> = {
   payment_already_has_linked_txid: "This payment already has a linked txid",
   missing_api_key: "Missing API key",
   api_key_not_string: "API key must be a string",
@@ -42,15 +53,31 @@ const errorMessages: Record<PiPaymentErrorCode, string> = {
   private_seed_mismatch: "You should use a private seed of your app wallet!",
 };
 
+export type PiPaymentErrorAdditionalData = {
+  data?: {
+    payment?: PaymentDTO;
+    paymentId?: string;
+    txid?: string;
+    verification_error?: string;
+  };
+  messageOverride?: string;
+};
+
 export class PiPaymentError extends Error {
   public code: string;
+  public payment?: PaymentDTO;
   public paymentId?: string;
   public txid?: string;
+  public verification_error?: string;
 
   constructor(code: PiPaymentErrorCode, data?: PiPaymentErrorAdditionalData) {
-    super(errorMessages[code]);
+    super(
+      data?.messageOverride || (code in errorMessages ? errorMessages[code as PiPaymentSdkErrorCode] : "Unknown error")
+    );
     this.code = code;
-    this.paymentId = data?.paymentId;
-    this.txid = data?.txid;
+    this.payment = data?.data?.payment;
+    this.paymentId = data?.data?.paymentId;
+    this.txid = data?.data?.txid;
+    this.verification_error = data?.data?.verification_error;
   }
 }
