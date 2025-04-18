@@ -89,7 +89,7 @@ export default class PiNetwork {
   };
 
   public getIncompleteServerPayments = async (): Promise<Array<PaymentDTO>> => {
-    const response = await this.api.get<{ incomplete_server_paymenets: Array<PaymentDTO> }>(
+    const response = await this.api.get<{ incomplete_server_payments: Array<PaymentDTO> }>(
       "/payments/incomplete_server_payments"
     );
 
