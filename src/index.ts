@@ -122,10 +122,11 @@ export default class PiNetwork {
     if (typeof paymentData.amount !== "number") throw new Error("Amount must be a number");
     if (!("memo" in paymentData)) throw new Error("Missing memo");
     if (typeof paymentData.memo !== "string") throw new Error("Memo must be a string");
-    if (!("fromAddress" in paymentData)) throw new Error("Missing from address");
-    if (typeof paymentData.fromAddress !== "string") throw new Error("From address must be a string");
-    if (!("toAddress" in paymentData)) throw new Error("Missing to address");
-    if (typeof paymentData.toAddress !== "string") throw new Error("To address must be a string");
+    if (!("metadata" in paymentData)) throw new Error("Missing metadata");
+    if (typeof paymentData.metadata !== "object" || paymentData.metadata === null)
+      throw new Error("Metadata must be an object");
+    if (!("uid" in paymentData)) throw new Error("Missing uid");
+    if (typeof paymentData.uid !== "string") throw new Error("Uid must be a string");
   };
 
   private getHorizonClient = (network: NetworkPassphrase) => {
