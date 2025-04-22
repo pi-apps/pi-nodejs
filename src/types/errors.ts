@@ -4,21 +4,21 @@ export type PiPaymentApiNotFoundErrorCode = "payment_not_found";
 
 export type PiPaymentApiValidationErrorCode =
   | PiPaymentApiNotFoundErrorCode
-  | "invalid_arguments"
   | "invalid_amount"
+  | "invalid_arguments"
   | "invalid_metadata"
   | "unknown_error";
 
 export type PiPaymentApiCreateErrorCode =
   | PiPaymentApiNotFoundErrorCode
   | "altered_amount"
-  | "user_not_found"
-  | "missing_scope"
   | "invalid_address"
+  | "missing_scope"
   | "missing_wallet"
   | "ongoing_payment_found"
   | "too_many_cancelled_payments"
-  | "too_many_payments";
+  | "too_many_payments"
+  | "user_not_found";
 
 export type PiPaymentApiCreateError<
   ErrorCode extends PiPaymentApiCreateErrorCode | PiPaymentApiValidationErrorCode =
@@ -37,11 +37,11 @@ export type PiPaymentApiCreateError<
 
 export type PiPaymentApiCompleteErrorCode =
   | PiPaymentApiNotFoundErrorCode
-  | "missing_param"
   | "already_completed"
   | "cancelled_payment"
-  | "not_verified"
+  | "missing_param"
   | "missing_txid"
+  | "not_verified"
   | "txid_mismatch"
   | "verification_failed";
 
@@ -58,18 +58,18 @@ export type PiPaymentApiCompleteError =
 
 export type PiPaymentApiCancelErrorCode =
   | PiPaymentApiNotFoundErrorCode
-  | "forbidden"
-  | "payment_tx_present"
   | "already_completed"
-  | "cancelled_payment";
+  | "cancelled_payment"
+  | "forbidden"
+  | "payment_tx_present";
 
 export type PiPaymentApiCancelError<ErrorCode extends PiPaymentApiCancelErrorCode = PiPaymentApiCancelErrorCode> =
   | {
-      error: Exclude<ErrorCode, "forbidden" | "already_completed" | "cancelled_payment">;
+      error: Exclude<ErrorCode, "already_completed" | "cancelled_payment" | "forbidden">;
       error_message: string;
     }
   | {
-      error: "forbidden" | "already_completed" | "cancelled_payment";
+      error: "already_completed" | "cancelled_payment" | "forbidden";
       error_message: string;
       payment: PaymentDTO;
     };

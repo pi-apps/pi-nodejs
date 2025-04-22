@@ -7,52 +7,52 @@ import {
 } from "./types/errors";
 
 export type PiPaymentSdkErrorCode =
-  | "payment_already_has_linked_txid"
-  | "missing_api_key"
-  | "api_key_not_string"
-  | "missing_wallet_private_seed"
-  | "wallet_private_seed_not_string"
-  | "wallet_private_seed_not_starts_with_S"
-  | "wallet_private_seed_not_56_chars_long"
-  | "payment_data_not_object"
-  | "invalid_wallet_private_seed"
-  | "missing_amount"
   | "amount_not_number"
-  | "missing_memo"
+  | "api_key_not_string"
+  | "invalid_wallet_private_seed"
   | "memo_not_string"
-  | "missing_metadata"
   | "metadata_not_object"
+  | "missing_amount"
+  | "missing_api_key"
+  | "missing_memo"
+  | "missing_metadata"
   | "missing_uid"
+  | "missing_wallet_private_seed"
+  | "payment_already_has_linked_txid"
+  | "payment_data_not_object"
+  | "private_seed_mismatch"
   | "uid_not_string"
-  | "private_seed_mismatch";
+  | "wallet_private_seed_not_56_chars_long"
+  | "wallet_private_seed_not_starts_with_S"
+  | "wallet_private_seed_not_string";
 
 export type PiPaymentApiErrorCode =
-  | PiPaymentApiValidationErrorCode
-  | PiPaymentApiCreateErrorCode
+  | PiPaymentApiCancelErrorCode
   | PiPaymentApiCompleteErrorCode
-  | PiPaymentApiCancelErrorCode;
+  | PiPaymentApiCreateErrorCode
+  | PiPaymentApiValidationErrorCode;
 
 export type PiPaymentErrorCode = PiPaymentSdkErrorCode | PiPaymentApiErrorCode;
 
 const errorMessages: Record<PiPaymentSdkErrorCode, string> = {
-  payment_already_has_linked_txid: "This payment already has a linked txid",
-  missing_api_key: "Missing API key",
-  api_key_not_string: "API key must be a string",
-  missing_wallet_private_seed: "Missing wallet private seed",
-  wallet_private_seed_not_string: "Wallet private seed must be a string",
-  wallet_private_seed_not_starts_with_S: "Wallet private seed must starts with 'S'",
-  wallet_private_seed_not_56_chars_long: "Wallet private seed must be 56-character long",
-  payment_data_not_object: "Payment data must be an object",
-  invalid_wallet_private_seed: "Invalid wallet private seed",
-  missing_amount: "Missing amount",
   amount_not_number: "Amount must be a number",
-  missing_memo: "Missing memo",
+  api_key_not_string: "API key must be a string",
+  invalid_wallet_private_seed: "Invalid wallet private seed",
   memo_not_string: "Memo must be a string",
-  missing_metadata: "Missing metadata",
   metadata_not_object: "Metadata must be an object",
+  missing_amount: "Missing amount",
+  missing_api_key: "Missing API key",
+  missing_memo: "Missing memo",
+  missing_metadata: "Missing metadata",
   missing_uid: "Missing uid",
-  uid_not_string: "Uid must be a string",
+  missing_wallet_private_seed: "Missing wallet private seed",
+  payment_already_has_linked_txid: "This payment already has a linked txid",
+  payment_data_not_object: "Payment data must be an object",
   private_seed_mismatch: "You should use a private seed of your app wallet!",
+  uid_not_string: "Uid must be a string",
+  wallet_private_seed_not_56_chars_long: "Wallet private seed must be 56-character long",
+  wallet_private_seed_not_starts_with_S: "Wallet private seed must starts with 'S'",
+  wallet_private_seed_not_string: "Wallet private seed must be a string",
 };
 
 export type PiPaymentErrorAdditionalData = {
