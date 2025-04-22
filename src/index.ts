@@ -145,7 +145,7 @@ export default class PiNetwork {
       const response = await this.api.get<{ incomplete_server_payments: Array<PaymentDTO> }>(
         "/payments/incomplete_server_payments"
       );
-      return response.data.incomplete_server_paymenets;
+      return response.data.incomplete_server_payments;
     } catch (err) {
       throw new PiPaymentError("unknown_error");
     }
