@@ -94,7 +94,7 @@ export default class PiNetwork {
           messageOverride: err.response.data.error_message,
           data:
             err.response.data.error === "verification_failed"
-              ? { verification_error: err.response.data.verification_error }
+              ? { verificationError: err.response.data.verification_error }
               : undefined,
         });
       }

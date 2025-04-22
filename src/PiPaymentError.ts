@@ -60,17 +60,25 @@ export type PiPaymentErrorAdditionalData = {
     payment?: PaymentDTO;
     paymentId?: string;
     txid?: string;
-    verification_error?: string;
+    verificationError?: string;
   };
   messageOverride?: string;
 };
 
-export class PiPaymentError extends Error {
+export type IPiPaymentError = {
+  code: string;
+  payment?: PaymentDTO;
+  paymentId?: string;
+  txid?: string;
+  verificationError?: string;
+};
+
+export class PiPaymentError extends Error implements IPiPaymentError {
   public code: string;
   public payment?: PaymentDTO;
   public paymentId?: string;
   public txid?: string;
-  public verification_error?: string;
+  public verificationError?: string;
 
   constructor(code: PiPaymentErrorCode, data?: PiPaymentErrorAdditionalData) {
     super(
@@ -80,6 +88,6 @@ export class PiPaymentError extends Error {
     this.payment = data?.data?.payment;
     this.paymentId = data?.data?.paymentId;
     this.txid = data?.data?.txid;
-    this.verification_error = data?.data?.verification_error;
+    this.verificationError = data?.data?.verificationError;
   }
 }
