@@ -4,18 +4,14 @@
     "outDir": "./dist",
     "module": "commonjs",
     "noImplicitAny": true,
-    "target": "es5",
+    "target": "es2020",
     "allowJs": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
     "declaration": true,
     "strict": true,
     "strictNullChecks": true,
-    "lib": [
-      // "esnext"
-      "es6",
-      "dom"
-    ],
+    "lib": ["es2020", "dom"],
     "declarationDir": "./dist",
     "rootDir": "./src",
     "composite": false,

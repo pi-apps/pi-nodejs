@@ -10,7 +10,7 @@ const buildOptions: esbuild.BuildOptions = {
   treeShaking: true,
   platform: "node",
   format: "esm",
-  target: "node16",
+  target: "es2020",
   define: {
     "process.env.PI_ENV": `"${process.env.PI_ENV || "development"}"`,
   },
