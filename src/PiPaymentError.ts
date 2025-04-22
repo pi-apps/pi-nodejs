@@ -1,4 +1,4 @@
-import { PaymentDTO } from "./types";
+import { PaymentDTO } from "./types/index";
 import {
   PiPaymentApiValidationErrorCode,
   PiPaymentApiCreateErrorCode,
@@ -15,6 +15,7 @@ export type PiPaymentSdkErrorCode =
   | "wallet_private_seed_not_starts_with_S"
   | "wallet_private_seed_not_56_chars_long"
   | "payment_data_not_object"
+  | "invalid_wallet_private_seed"
   | "missing_amount"
   | "amount_not_number"
   | "missing_memo"
@@ -42,6 +43,7 @@ const errorMessages: Record<PiPaymentSdkErrorCode, string> = {
   wallet_private_seed_not_starts_with_S: "Wallet private seed must starts with 'S'",
   wallet_private_seed_not_56_chars_long: "Wallet private seed must be 56-character long",
   payment_data_not_object: "Payment data must be an object",
+  invalid_wallet_private_seed: "Invalid wallet private seed",
   missing_amount: "Missing amount",
   amount_not_number: "Amount must be a number",
   missing_memo: "Missing memo",

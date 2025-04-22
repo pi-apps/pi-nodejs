@@ -161,7 +161,7 @@ export default class PiNetwork {
     if (typeof seed !== "string") throw new PiPaymentError("wallet_private_seed_not_string");
     if (!seed.startsWith("S")) throw new PiPaymentError("wallet_private_seed_not_starts_with_S");
     if (seed.length !== 56) throw new PiPaymentError("wallet_private_seed_not_56_chars_long");
-    if (!StellarSdk.StrKey.isValidEd25519SecretSeed(seed)) throw new Error("Invalid wallet private seed");
+    if (!StellarSdk.StrKey.isValidEd25519SecretSeed(seed)) throw new PiPaymentError("invalid_wallet_private_seed");
   };
 
   private validatePaymentData = (paymentData: unknown) => {
