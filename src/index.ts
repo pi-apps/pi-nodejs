@@ -92,8 +92,6 @@ export default class PiNetwork {
     const response = await this.api.get<{ incomplete_server_payments: Array<PaymentDTO> }>(
       "/payments/incomplete_server_payments"
     );
-
-    /** @MAJOR_UPDATE_NEEDED This place was mistyped (missing incomplete_server_payments field) */
     return response.data.incomplete_server_payments;
   };
 
