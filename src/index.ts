@@ -71,8 +71,10 @@ export default class PiNetwork {
       };
 
       const transaction = await this.buildA2UTransaction(piHorizon, transactionData, this.currentPayment.network);
-      const txid = await this.submitTransaction(piHorizon, transaction);
-      return txid;
+      const response = await piHorizon.submitTransaction(transaction);
+
+      // @ts-expect-error StellarSdk.Horizon.HorizonApi.TransactionResponse.id is misstyped
+      return response.id;
     } catch (err) {
       if (err instanceof PiPaymentError) {
         throw err;
@@ -213,15 +215,6 @@ export default class PiNetwork {
 
     transaction.sign(this.myKeypair);
     return transaction;
-  };
-
-  private submitTransaction = async (
-    piHorizon: StellarSdk.Horizon.Server,
-    transaction: StellarSdk.Transaction
-  ): Promise<string> => {
-    const txResponse = await piHorizon.submitTransaction(transaction);
-    // @ts-expect-error StellarSdk.Horizon.HorizonApi.TransactionResponse.id is misstyped
-    return txResponse.id;
   };
 }
 
