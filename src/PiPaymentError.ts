@@ -5,8 +5,11 @@ import {
   PiPaymentApiCompleteErrorCode,
   PiPaymentApiCancelErrorCode,
 } from "./types/errors";
+import { OperationResultCode, TransactionResultCode } from "utils";
 
 export type PiPaymentSdkErrorCode =
+  | TransactionResultCode
+  | OperationResultCode
   | "amount_not_number"
   | "api_key_not_string"
   | "invalid_wallet_private_seed"
@@ -53,6 +56,22 @@ const errorMessages: Record<PiPaymentSdkErrorCode, string> = {
   wallet_private_seed_not_56_chars_long: "Wallet private seed must be 56-character long",
   wallet_private_seed_not_starts_with_S: "Wallet private seed must starts with 'S'",
   wallet_private_seed_not_string: "Wallet private seed must be a string",
+  tx_failed: "Transaction failed",
+  tx_too_early: "Transaction submitted too early",
+  tx_too_late: "Transaction submitted too late",
+  tx_missing_operation: "Transaction is missing operation",
+  tx_bad_seq: "Transaction has bad sequence number",
+  tx_bad_auth: "Transaction contains too few valid signatures",
+  tx_insufficient_balance: "Transaction has insufficient balance",
+  tx_no_source_accout: "Transaction has no source account",
+  tx_insufficient_fee: "Transaction has insufficient fee",
+  tx_bad_auth_extra: "Transaction contains unused signatures attached",
+  tx_internal_error: "Transaction internal error",
+  op_bad_auth: "Transaction contains too few valid signatures or was submitted to the wrong network",
+  op_no_source_account: "Operation is missing source account",
+  op_not_supported: "Operation is not supported",
+  op_too_many_subentries: "Transaction contains too many subentries",
+  op_exceeded_work_limit: "Operation exceeded the work limit",
 };
 
 export interface PiPaymentErrorAdditionalData {

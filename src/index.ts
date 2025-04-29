@@ -1,6 +1,6 @@
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { NetworkPassphrase, PaymentArgs, PaymentDTO, TransactionData } from "./types";
-import { createPlatformApiClient, isMainnet } from "./utils";
+import { createPlatformApiClient, isMainnet, isSubmitTransactionErrorResponse } from "./utils";
 import { config } from "./config";
 import { AxiosInstance, isAxiosError } from "axios";
 import { PiPaymentError } from "./PiPaymentError";
@@ -74,7 +74,14 @@ export default class PiNetwork {
       const response = await piHorizon.submitTransaction(transaction);
 
       if (!response.successful) {
-        throw new PiPaymentError("unknown_error");
+        if (isSubmitTransactionErrorResponse(response)) {
+          const resultCode =
+            response.extras?.result_codes?.transaction ||
+            response.extras?.result_codes?.operations?.[0] ||
+            "unknown_error";
+
+          throw new PiPaymentError(resultCode);
+        }
       }
 
       // @ts-expect-error StellarSdk.Horizon.HorizonApi.TransactionResponse.id is misstyped
