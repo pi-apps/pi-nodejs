@@ -16,7 +16,7 @@ export type PiPaymentApiCreateErrorCode =
   | "missing_scope"
   | "missing_wallet"
   | "ongoing_payment_found"
-  | "operation_not_allowed"
+  | "feature_not_available"
   | "too_many_cancelled_payments"
   | "too_many_payments"
   | "user_not_found";
