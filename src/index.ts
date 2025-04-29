@@ -63,7 +63,7 @@ export default class PiNetwork {
       } = this.currentPayment;
 
       const piHorizon = this.getHorizonClient(this.currentPayment.network);
-      const transactionData = {
+      const transactionData: TransactionData = {
         amount,
         paymentIdentifier,
         fromAddress,
@@ -73,8 +73,17 @@ export default class PiNetwork {
       const transaction = await this.buildA2UTransaction(piHorizon, transactionData, this.currentPayment.network);
       const response = await piHorizon.submitTransaction(transaction);
 
+      if (!response.successful) {
+        throw new PiPaymentError("unknown_error");
+      }
+
       // @ts-expect-error StellarSdk.Horizon.HorizonApi.TransactionResponse.id is misstyped
-      return response.id;
+      const txid = response.id as string | undefined;
+      if (!txid) {
+        throw new PiPaymentError("unknown_error");
+      }
+
+      return txid;
     } catch (err) {
       if (err instanceof PiPaymentError) {
         throw err;
