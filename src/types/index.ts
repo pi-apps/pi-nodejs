@@ -1,18 +1,21 @@
-export type PaymentArgs = {
+export interface PaymentArgs {
   amount: number;
   memo: string;
   metadata: object;
   uid: string;
-};
+}
 
-export type TransactionData = {
+export interface TransactionData {
   amount: number;
   paymentIdentifier: string;
   fromAddress: string;
   toAddress: string;
-};
+}
 
-export type PaymentDTO = {
+export type NetworkPassphrase = "Pi Network" | "Pi Testnet";
+export type Direction = "user_to_app" | "app_to_user";
+
+export interface PaymentDTO {
   identifier: string;
   user_uid: string;
   amount: number;
@@ -35,11 +38,4 @@ export type PaymentDTO = {
   } | null;
   created_at: string;
   network: NetworkPassphrase;
-};
-
-export type NetworkPassphrase = "Pi Network" | "Pi Testnet";
-export type Direction = "user_to_app" | "app_to_user";
-
-export type AxiosClientOptions = {
-  baseUrl?: string;
-};
+}

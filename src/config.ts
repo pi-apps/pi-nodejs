@@ -9,7 +9,7 @@ if (!dotenvConfig) {
   throw new Error(`Failed to load .env file`);
 }
 
-type Config = {
+interface Config {
   PI_BACKEND_HORIZON_MAINNET_URL: string;
   PI_BACKEND_HORIZON_MAINNET_PASSPHRASE: string;
   PI_BACKEND_HORIZON_TESTNET_URL: string;
@@ -17,7 +17,7 @@ type Config = {
   PI_BACKEND_HORIZON_DEFAULT_TIMEBOUNDS: number;
   PI_BACKEND_HORIZON_TIMEOUT_MS: number;
   PI_BACKEND_PLATFORM_BASE_URL: string;
-};
+}
 
 const config: Config = {
   PI_BACKEND_HORIZON_MAINNET_URL: dotenvConfig.PI_BACKEND_HORIZON_MAINNET_URL,

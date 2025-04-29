@@ -55,7 +55,7 @@ const errorMessages: Record<PiPaymentSdkErrorCode, string> = {
   wallet_private_seed_not_string: "Wallet private seed must be a string",
 };
 
-export type PiPaymentErrorAdditionalData = {
+export interface PiPaymentErrorAdditionalData {
   data?: {
     payment?: PaymentDTO;
     paymentId?: string;
@@ -63,15 +63,15 @@ export type PiPaymentErrorAdditionalData = {
     verificationError?: string;
   };
   messageOverride?: string;
-};
+}
 
-export type IPiPaymentError = {
+export interface IPiPaymentError {
   code: string;
   payment?: PaymentDTO;
   paymentId?: string;
   txid?: string;
   verificationError?: string;
-};
+}
 
 export class PiPaymentError extends Error implements IPiPaymentError {
   public code: string;
