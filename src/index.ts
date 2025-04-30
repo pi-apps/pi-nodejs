@@ -76,8 +76,8 @@ export default class PiNetwork {
       if (!response.successful) {
         if (isSubmitTransactionErrorResponse(response)) {
           const resultCode =
-            response.extras?.result_codes?.transaction ||
             response.extras?.result_codes?.operations?.[0] ||
+            response.extras?.result_codes?.transaction ||
             "unknown_error";
 
           throw new PiPaymentError(resultCode);
