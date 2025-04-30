@@ -62,15 +62,15 @@ const errorMessages: Record<PiPaymentSdkErrorCode, string> = {
   tx_missing_operation: "Transaction is missing operation.",
   tx_bad_seq: "Transaction has bad sequence number.",
   tx_bad_auth: "Transaction contains too few valid signatures.",
-  tx_insufficient_balance: "Transaction has insufficient balance.",
+  tx_insufficient_balance: "Source account doesn't have enough balance for this transaction.",
   tx_no_source_accout: "Transaction has no source account.",
-  tx_insufficient_fee: "Transaction has insufficient fee.",
+  tx_insufficient_fee: "Transaction was submitted with insufficient fee.",
   tx_bad_auth_extra: "Transaction contains unused signatures attached.",
   tx_internal_error: "Transaction internal error.",
   op_bad_auth: "Transaction contains too few valid signatures or was submitted to the wrong network.",
   op_no_source_account: "Operation is missing source account.",
   op_not_supported: "Operation is not supported.",
-  op_too_many_subentries: "Transaction contains too many subentries.",
+  op_too_many_subentries: "Account reached max number (1000) of subentries.",
   op_exceeded_work_limit: "Operation exceeded the work limit.",
 };
 
