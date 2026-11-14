@@ -14,18 +14,34 @@ const buildOptions: esbuild.BuildOptions = {
   define: {
     "process.env.PI_ENV": `"${process.env.PI_ENV || "development"}"`,
   },
-  external: ["stellar-sdk", "axios", "dotenv"],
+  // Keep every dependency external: bundling a CommonJS one such as @stellar/stellar-sdk into this ESM output
+  // breaks its require() calls.
+  packages: "external",
   legalComments: "linked" as const,
+};
+
+// CommonJS build, so `require("pi-backend")` keeps working as it did in 0.1.x. It has no import.meta, so the config
+// loader's import.meta.url is computed from __filename instead.
+const cjsBuildOptions: esbuild.BuildOptions = {
+  ...buildOptions,
+  outfile: "dist/index.cjs",
+  format: "cjs",
+  define: { ...buildOptions.define, "import.meta.url": "__piImportMetaUrl" },
+  banner: { js: 'const __piImportMetaUrl = require("url").pathToFileURL(__filename).href;' },
+  // The ESM build already writes the license file.
+  legalComments: "none",
 };
 
 async function build() {
   try {
     if (process.argv.includes("--watch")) {
-      const ctx = await esbuild.context(buildOptions);
-      await ctx.watch();
+      for (const options of [buildOptions, cjsBuildOptions]) {
+        const ctx = await esbuild.context(options);
+        await ctx.watch();
+      }
       console.log("Watching for file changes...");
     } else {
-      await esbuild.build(buildOptions);
+      await Promise.all([esbuild.build(buildOptions), esbuild.build(cjsBuildOptions)]);
     }
 
     const distDir = path.join(process.cwd(), "dist");
