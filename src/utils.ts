@@ -48,7 +48,7 @@ export interface SubmitTransactionErrorResponse {
   type: string;
 }
 
-export const isSubmitTransactionErrorResponse = (response: any): response is SubmitTransactionErrorResponse => {
+export const isSubmitTransactionErrorResponse = (response: unknown): response is SubmitTransactionErrorResponse => {
   if (typeof response !== "object" || response === null) return false;
   const { title, status } = response as SubmitTransactionErrorResponse;
   return typeof title === "string" && typeof status === "number";

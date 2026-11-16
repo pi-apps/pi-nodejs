@@ -166,7 +166,7 @@ export default class PiNetwork {
         "/payments/incomplete_server_payments"
       );
       return response.data.incomplete_server_payments;
-    } catch (err) {
+    } catch {
       throw new PiPaymentError("unknown_error");
     }
   };
@@ -237,5 +237,11 @@ export default class PiNetwork {
 }
 
 export { PiPaymentError, SmartContract, PiSubscriptionError };
-export type { IntegerInput, ProcessMode, ProcessOptions, ProcessResult, ProcessSubmitResult } from "./types/subscription";
+export type {
+  IntegerInput,
+  ProcessMode,
+  ProcessOptions,
+  ProcessResult,
+  ProcessSubmitResult,
+} from "./types/subscription";
 export type { PiSubscriptionErrorCode } from "./PiSubscriptionError";

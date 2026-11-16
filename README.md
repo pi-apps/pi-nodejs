@@ -357,7 +357,7 @@ Errors are thrown as `PiSubscriptionError` with a `code`:
 | `transaction_not_confirmed` | Sent, but the outcome is unknown. Look up `txid` before sending again. |
 | `unexpected_response`, `rpc_error` | The RPC server answered with something the SDK couldn't read, or a request to it failed. |
 
-The merchant account pays the fee. The contract extends the lifetime of every entry it touches, so most of the fee is rent: expect several Pi per call. The SDK adds 50% headroom to the simulated resource fee (the unused part is refunded), so keep that much available in the merchant account.
+The merchant account pays the fee. On the default Pi Testnet contract a call has cost about 0.01 to 0.02 Pi. It grows with the number of subscriptions in the batch, and with rent: the contract extends the lifetime of every entry it touches, which costs more when entries are close to expiring. The SDK adds 50% headroom to the simulated resource fee (the unused part is refunded), so keep more than that available in the merchant account.
 
 **Don't run `process` at the same time as A2U payments from the same wallet.** Every transaction uses the sending account's next sequence number. If the merchant secret is also your app wallet's seed (the one you pass to `new PiNetwork(apiKey, walletPrivateSeed)`), a `process` call and an A2U payment built at the same moment get the same sequence number, and only one of them lands. On Pi Testnet both outcomes happen:
 
