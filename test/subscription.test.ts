@@ -202,6 +202,11 @@ describe("Subscription.process", () => {
       "invalid_rpc_url",
     ],
     [
+      "an RPC URL with another scheme",
+      () => Subscription.process(merchant.secret(), 7, 0, 20, { ...options, rpcUrl: "ftp://rpc.example" }),
+      "invalid_rpc_url",
+    ],
+    [
       "an empty network passphrase",
       () => Subscription.process(merchant.secret(), 7, 0, 20, { ...options, networkPassphrase: "" }),
       "invalid_network_passphrase",
@@ -218,6 +223,28 @@ describe("Subscription.process", () => {
       assert.equal(calls.simulated.length, 0);
     });
   }
+
+  it("accepts an RPC URL whose scheme is upper case", async () => {
+    const calls = stubServer();
+    await Subscription.process(merchant.secret(), 7, 0, 20, {
+      ...options,
+      rpcUrl: "HTTPS://RPC.example",
+      mode: "simulate",
+    });
+    assert.equal(calls.simulated.length, 1);
+  });
+
+  it("keeps the txid when a sent transaction's result can't be read", async () => {
+    const calls = stubServer({
+      poll: () => ({
+        status: rpc.Api.GetTransactionStatus.SUCCESS,
+        ledger: 101,
+        returnValue: StellarSdk.nativeToScVal("not a ProcessResult"),
+      }),
+    });
+    const err = await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "unexpected_response");
+    assert.equal(err.txid, calls.sent[0].hash().toString("hex"));
+  });
 
   it("reports a missing merchant account as account_not_found", async () => {
     stubServer({ getAccount: () => Promise.reject(new Error("Account not found: G...")) });

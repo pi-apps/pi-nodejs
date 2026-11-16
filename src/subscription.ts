@@ -36,12 +36,31 @@ const toU32 = (value: unknown, code: PiSubscriptionErrorCode): number => {
   return Number(parsed);
 };
 
-const toProcessResult = (value: StellarSdk.xdr.ScVal): ProcessResult => {
-  const native = StellarSdk.scValToNative(value) as Record<string, unknown> | null;
+// An http(s) URL, normalized (e.g. the scheme lowercased, which the Stellar SDK requires), or null.
+const toHttpUrl = (value: unknown): URL | null => {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? url : null;
+  } catch {
+    return null;
+  }
+};
+
+const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+// txid is set once the transaction has been sent, so an unreadable result still says which transaction it was.
+const toProcessResult = (value: StellarSdk.xdr.ScVal, txid?: string): ProcessResult => {
+  let native: Record<string, unknown> | null;
+  try {
+    native = StellarSdk.scValToNative(value) as Record<string, unknown> | null;
+  } catch (err) {
+    throw new PiSubscriptionError("unexpected_response", { data: { txid, detail: errorText(err) } });
+  }
   const keys = ["charged", "failed", "skipped", "total"];
   if (!native || typeof native !== "object" || !keys.every((key) => typeof native[key] === "number")) {
     throw new PiSubscriptionError("unexpected_response", {
-      data: { detail: "The contract did not return a ProcessResult." },
+      data: { txid, detail: "The contract did not return a ProcessResult." },
     });
   }
   return {
@@ -51,8 +70,6 @@ const toProcessResult = (value: StellarSdk.xdr.ScVal): ProcessResult => {
     total: native.total as number,
   };
 };
-
-const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 /**
  * Runs the subscription contract's process() for a service, signed with the merchant's own secret on the
@@ -67,10 +84,11 @@ const errorText = (err: unknown) => (err instanceof Error ? err.message : String
  *
  * The call uses the merchant account's next sequence number. If the same wallet also sends other transactions
  * (for example A2U payments with PiNetwork created from the same seed), don't run them at the same time as
- * process(): two transactions built on the same sequence number can't both land. When process() loses, the RPC
- * server drops it after accepting it, and it ends in transaction_not_confirmed (detail "NOT_FOUND") once its
- * validity window has passed; that batch did not run and can be run again. Run them one after the other, or
- * use separate wallets.
+ * process(): two transactions built on the same sequence number can't both land. When process() loses, it fails
+ * with transaction_rejected (detail "txBadSeq") if the other transaction had already landed when it was sent, or
+ * the RPC server drops it after accepting it and it ends in transaction_not_confirmed (detail "NOT_FOUND") once
+ * its validity window has passed. Either way that batch did not run and can be run again. Run them one after the
+ * other, or use separate wallets.
  */
 function processSubscriptions(
   merchantSecret: string,
@@ -112,8 +130,8 @@ async function processSubscriptions(
   const timeoutSecs = options.timeoutSecs ?? DEFAULT_TIMEOUT_SECS;
   if (!Number.isInteger(timeoutSecs) || timeoutSecs <= 0) throw new PiSubscriptionError("invalid_timeout");
 
-  const rpcUrl = options.rpcUrl ?? DEFAULT_RPC_URL;
-  if (typeof rpcUrl !== "string" || !/^https?:\/\/\S+$/.test(rpcUrl)) throw new PiSubscriptionError("invalid_rpc_url");
+  const rpcUrl = toHttpUrl(options.rpcUrl ?? DEFAULT_RPC_URL);
+  if (!rpcUrl) throw new PiSubscriptionError("invalid_rpc_url");
   const networkPassphrase = options.networkPassphrase ?? DEFAULT_NETWORK_PASSPHRASE;
   if (typeof networkPassphrase !== "string" || networkPassphrase === "") {
     throw new PiSubscriptionError("invalid_network_passphrase");
@@ -124,7 +142,7 @@ async function processSubscriptions(
   }
 
   const keypair = StellarSdk.Keypair.fromSecret(merchantSecret);
-  const server = new StellarSdk.rpc.Server(rpcUrl, { allowHttp: rpcUrl.startsWith("http://") });
+  const server = new StellarSdk.rpc.Server(rpcUrl.href, { allowHttp: rpcUrl.protocol === "http:" });
 
   let account: StellarSdk.Account;
   try {
@@ -214,13 +232,13 @@ async function processSubscriptions(
         },
       });
     }
-    return { txid, ledger: outcome.ledger, result: toProcessResult(outcome.returnValue) };
+    return { txid, ledger: outcome.ledger, result: toProcessResult(outcome.returnValue, txid) };
   }
   if (outcome.status === StellarSdk.rpc.Api.GetTransactionStatus.FAILED) {
     throw new PiSubscriptionError("transaction_failed", {
       data: {
         txid,
-        detail: outcome.resultXdr.result().switch().name,
+        detail: outcome.resultXdr?.result().switch().name,
       },
     });
   }
