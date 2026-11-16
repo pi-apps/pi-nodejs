@@ -9,6 +9,8 @@ Published under the npm `next` tag (`npm install pi-backend@next`). The default 
 ### Added
 
 - `SmartContract.Subscription.process(merchantSecret, serviceId, offset, limit, options?)`: runs the Pi Subscription contract's `process` from your server. It signs with the merchant wallet's secret seed and sends the call straight to the Pi Soroban RPC server, so renewals can be collected by a scheduled job instead of through the Pi Browser. Same path and argument order as the client SDK's `Pi.SmartContract.Subscription.process`.
+  - `serviceId`, `offset` and `limit` each take a number, a bigint or a string of digits.
+  - The return type follows `options.mode`: `ProcessSubmitResult` for `"submit"` (the default), `ProcessResult` for `"simulate"`.
 - `PiSubscriptionError`, with a `code` for each failure and the contract error's name when the contract refuses a call.
 - A CommonJS build (`dist/index.cjs`) next to the ES module build (`dist/index.js`), so both `import` and `require()` work.
 

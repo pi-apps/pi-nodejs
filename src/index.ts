@@ -237,5 +237,5 @@ export default class PiNetwork {
 }
 
 export { PiPaymentError, SmartContract, PiSubscriptionError };
-export type { ProcessMode, ProcessOptions, ProcessResult, ProcessSubmitResult } from "./types/subscription";
+export type { IntegerInput, ProcessMode, ProcessOptions, ProcessResult, ProcessSubmitResult } from "./types/subscription";
 export type { PiSubscriptionErrorCode } from "./PiSubscriptionError";

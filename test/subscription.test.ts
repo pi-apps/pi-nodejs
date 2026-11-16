@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { SmartContract } from "../src/subscription";
 import { PiSubscriptionError } from "../src/PiSubscriptionError";
+import type { ProcessMode, ProcessResult, ProcessSubmitResult } from "../src/types/subscription";
 
 const { Subscription } = SmartContract;
 
@@ -122,6 +123,36 @@ describe("Subscription.process", () => {
     assert.equal(sent.toEnvelope().v1().tx().ext().sorobanData().resourceFee().toString(), "1500");
   });
 
+  it("accepts offset and limit as bigints, like the service ID", async () => {
+    const calls = stubServer();
+    await Subscription.process(merchant.secret(), BigInt(7), BigInt(20), BigInt(10), { ...options, mode: "simulate" });
+    assert.deepEqual(invokedArgs(calls.simulated[0]).args, [merchant.publicKey(), BigInt(7), 20, 10]);
+  });
+
+  it("types the result by mode, so mode-specific fields need no narrowing", async () => {
+    stubServer();
+    const preview: ProcessResult = await Subscription.process(merchant.secret(), 7, 0, 20, {
+      ...options,
+      mode: "simulate",
+    });
+    // @ts-expect-error a simulation has no txid
+    assert.equal(preview.txid, undefined);
+    const submitted: ProcessSubmitResult = await Subscription.process(merchant.secret(), 7, 0, 20, options);
+    assert.equal(submitted.result.total, preview.total);
+    const explicit: ProcessSubmitResult = await Subscription.process(merchant.secret(), 7, 0, 20, {
+      ...options,
+      mode: "submit",
+    });
+    assert.equal(explicit.ledger, 101);
+    // A mode held in a ProcessMode variable resolves to either shape.
+    const mode = "simulate" as ProcessMode;
+    const either: ProcessResult | ProcessSubmitResult = await Subscription.process(merchant.secret(), 7, 0, 20, {
+      ...options,
+      mode,
+    });
+    assert.equal("total" in either && either.total, 6);
+  });
+
   it("defaults to the Pi Testnet RPC, passphrase and subscription contract", async () => {
     const calls = stubServer();
     await Subscription.process(merchant.secret(), 7, 0, 20, { mode: "simulate" });
@@ -144,7 +175,17 @@ describe("Subscription.process", () => {
     ],
     ["a blank service ID", () => Subscription.process(merchant.secret(), "", 0, 20, options), "invalid_service_id"],
     ["a fractional offset", () => Subscription.process(merchant.secret(), 7, 1.5, 20, options), "invalid_offset"],
+    [
+      "a negative bigint offset",
+      () => Subscription.process(merchant.secret(), 7, BigInt(-1), 20, options),
+      "invalid_offset",
+    ],
     ["a limit above u32", () => Subscription.process(merchant.secret(), 7, 0, 4294967296, options), "invalid_limit"],
+    [
+      "a bigint limit above u32",
+      () => Subscription.process(merchant.secret(), 7, 0, BigInt("4294967296"), options),
+      "invalid_limit",
+    ],
     [
       "an unknown mode",
       () => Subscription.process(merchant.secret(), 7, 0, 20, { ...options, mode: "sign" as never }),
@@ -154,6 +195,16 @@ describe("Subscription.process", () => {
       "a zero timeout",
       () => Subscription.process(merchant.secret(), 7, 0, 20, { ...options, timeoutSecs: 0 }),
       "invalid_timeout",
+    ],
+    [
+      "an RPC URL that is not http(s)",
+      () => Subscription.process(merchant.secret(), 7, 0, 20, { ...options, rpcUrl: "rpc.example" }),
+      "invalid_rpc_url",
+    ],
+    [
+      "an empty network passphrase",
+      () => Subscription.process(merchant.secret(), 7, 0, 20, { ...options, networkPassphrase: "" }),
+      "invalid_network_passphrase",
     ],
     [
       "an account address as the contract",

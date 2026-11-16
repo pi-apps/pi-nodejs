@@ -6,6 +6,9 @@ export interface ProcessResult {
   total: number; // all subscriptions of the service; page through them with offset
 }
 
+// A u32 or u64 argument: a number, a bigint or a string of digits.
+export type IntegerInput = string | number | bigint;
+
 export type ProcessMode = "simulate" | "submit";
 
 export interface ProcessOptions {

@@ -1,5 +1,5 @@
 import * as StellarSdk from "@stellar/stellar-sdk";
-import { ProcessOptions, ProcessResult, ProcessSubmitResult } from "./types/subscription";
+import { IntegerInput, ProcessOptions, ProcessResult, ProcessSubmitResult } from "./types/subscription";
 import { parseContractError, PiSubscriptionError, PiSubscriptionErrorCode } from "./PiSubscriptionError";
 
 // Inclusion fee in stroops (0.01 Pi), the same as the client SDK's smart-contract calls.
@@ -13,26 +13,27 @@ const DEFAULT_RPC_URL = "https://rpc.testnet.minepi.com";
 const DEFAULT_NETWORK_PASSPHRASE = "Pi Testnet";
 const DEFAULT_CONTRACT_ADDRESS = "CCUF75B6W3HRJTJD6O7OXNI72HGJ7DERZ5MUNOMFMSK23ME5GUIKPFYV";
 const DEFAULT_TIMEOUT_SECS = 180;
-const U32_MAX = 0xffffffff;
-const U32_MAX_BIGINT = BigInt(U32_MAX);
+const U32_MAX_BIGINT = BigInt(0xffffffff);
 const U64_MAX = BigInt("18446744073709551615");
 
+// Integer arguments may be a number, a bigint or a string of digits (IDs read from a database or a request).
+const toBigInt = (value: unknown): bigint | null => {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number" && Number.isSafeInteger(value)) return BigInt(value);
+  if (typeof value === "string" && /^\d+$/.test(value)) return BigInt(value);
+  return null;
+};
+
 const toU64 = (value: unknown, code: PiSubscriptionErrorCode): bigint => {
-  let parsed: bigint;
-  if (typeof value === "bigint") parsed = value;
-  else if (typeof value === "number" && Number.isSafeInteger(value)) parsed = BigInt(value);
-  else if (typeof value === "string" && /^\d+$/.test(value)) parsed = BigInt(value);
-  else throw new PiSubscriptionError(code);
-  if (parsed < BigInt(0) || parsed > U64_MAX) throw new PiSubscriptionError(code);
+  const parsed = toBigInt(value);
+  if (parsed === null || parsed < BigInt(0) || parsed > U64_MAX) throw new PiSubscriptionError(code);
   return parsed;
 };
 
 const toU32 = (value: unknown, code: PiSubscriptionErrorCode): number => {
-  const parsed = typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value;
-  if (typeof parsed !== "number" || !Number.isInteger(parsed) || parsed < 0 || parsed > U32_MAX) {
-    throw new PiSubscriptionError(code);
-  }
-  return parsed;
+  const parsed = toBigInt(value);
+  if (parsed === null || parsed < BigInt(0) || parsed > U32_MAX_BIGINT) throw new PiSubscriptionError(code);
+  return Number(parsed);
 };
 
 const toProcessResult = (value: StellarSdk.xdr.ScVal): ProcessResult => {
@@ -44,10 +45,10 @@ const toProcessResult = (value: StellarSdk.xdr.ScVal): ProcessResult => {
     });
   }
   return {
-    charged: Number(native.charged),
-    failed: Number(native.failed),
-    skipped: Number(native.skipped),
-    total: Number(native.total),
+    charged: native.charged as number,
+    failed: native.failed as number,
+    skipped: native.skipped as number,
+    total: native.total as number,
   };
 };
 
@@ -60,17 +61,46 @@ const errorText = (err: unknown) => (err instanceof Error ? err.message : String
  * process() charges every due, auto-renewing subscription in [offset, offset + limit) of the service's
  * subscription list. Read the merchant secret from your server's environment; never send it to a client.
  *
- * - mode "submit" (default): signs, sends, waits for the result and resolves with the hash, ledger and
+ * - mode "submit" (default): signs, sends, waits for the result and resolves with the txid, ledger and
  *   ProcessResult.
  * - mode "simulate": resolves with the ProcessResult the call would produce, without signing or sending.
+ *
+ * The call uses the merchant account's next sequence number. If the same wallet also sends other transactions
+ * (for example A2U payments with PiNetwork created from the same seed), don't run them at the same time as
+ * process(): two transactions built on the same sequence number can't both land. When process() loses, the RPC
+ * server drops it after accepting it, and it ends in transaction_not_confirmed (detail "NOT_FOUND") once its
+ * validity window has passed; that batch did not run and can be run again. Run them one after the other, or
+ * use separate wallets.
  */
-const processSubscriptions = async (
+function processSubscriptions(
   merchantSecret: string,
-  serviceId: string | number | bigint,
-  offset: string | number,
-  limit: string | number,
+  serviceId: IntegerInput,
+  offset: IntegerInput,
+  limit: IntegerInput,
+  options: ProcessOptions & { mode: "simulate" }
+): Promise<ProcessResult>;
+function processSubscriptions(
+  merchantSecret: string,
+  serviceId: IntegerInput,
+  offset: IntegerInput,
+  limit: IntegerInput,
+  options?: ProcessOptions & { mode?: "submit" }
+): Promise<ProcessSubmitResult>;
+// For a mode held in a variable typed ProcessMode.
+function processSubscriptions(
+  merchantSecret: string,
+  serviceId: IntegerInput,
+  offset: IntegerInput,
+  limit: IntegerInput,
+  options?: ProcessOptions
+): Promise<ProcessResult | ProcessSubmitResult>;
+async function processSubscriptions(
+  merchantSecret: string,
+  serviceId: IntegerInput,
+  offset: IntegerInput,
+  limit: IntegerInput,
   options: ProcessOptions = {}
-): Promise<ProcessResult | ProcessSubmitResult> => {
+): Promise<ProcessResult | ProcessSubmitResult> {
   if (typeof merchantSecret !== "string" || !StellarSdk.StrKey.isValidEd25519SecretSeed(merchantSecret)) {
     throw new PiSubscriptionError("invalid_merchant_secret");
   }
@@ -83,7 +113,11 @@ const processSubscriptions = async (
   if (!Number.isInteger(timeoutSecs) || timeoutSecs <= 0) throw new PiSubscriptionError("invalid_timeout");
 
   const rpcUrl = options.rpcUrl ?? DEFAULT_RPC_URL;
+  if (typeof rpcUrl !== "string" || !/^https?:\/\/\S+$/.test(rpcUrl)) throw new PiSubscriptionError("invalid_rpc_url");
   const networkPassphrase = options.networkPassphrase ?? DEFAULT_NETWORK_PASSPHRASE;
+  if (typeof networkPassphrase !== "string" || networkPassphrase === "") {
+    throw new PiSubscriptionError("invalid_network_passphrase");
+  }
   const contractAddress = options.contractAddress ?? DEFAULT_CONTRACT_ADDRESS;
   if (typeof contractAddress !== "string" || !StellarSdk.StrKey.isValidContract(contractAddress)) {
     throw new PiSubscriptionError("invalid_contract_address");
@@ -191,7 +225,7 @@ const processSubscriptions = async (
     });
   }
   throw new PiSubscriptionError("transaction_not_confirmed", { data: { txid, detail: outcome.status } });
-};
+}
 
 const Subscription = { process: processSubscriptions };
 export const SmartContract = { Subscription };

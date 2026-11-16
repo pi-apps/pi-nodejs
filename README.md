@@ -299,18 +299,30 @@ for (let offset = 0; offset < preview.total; offset += BATCH) {
 
 ```typescript
 SmartContract.Subscription.process(
-  merchantSecret: string,              // the merchant wallet's secret seed (S...)
-  serviceId: string | number | bigint, // the service to process (u64)
-  offset: string | number,             // where to start in the service's subscription list (u32)
-  limit: string | number,              // how many subscriptions to handle in this call (u32)
-  options?: {
-    mode?: "simulate" | "submit";      // default "submit"
-    rpcUrl?: string;                   // default: Pi Testnet RPC (https://rpc.testnet.minepi.com)
-    networkPassphrase?: string;        // default: "Pi Testnet"
-    contractAddress?: string;          // default: the Pi Testnet Subscription contract
-    timeoutSecs?: number;              // how long the transaction stays valid, default 180
-  }
-): Promise<ProcessResult | { txid: string; ledger: number; result: ProcessResult }>
+  merchantSecret: string,   // the merchant wallet's secret seed (S...)
+  serviceId: IntegerInput,  // the service to process (u64)
+  offset: IntegerInput,     // where to start in the service's subscription list (u32)
+  limit: IntegerInput,      // how many subscriptions to handle in this call (u32)
+  options?: ProcessOptions
+): Promise<ProcessSubmitResult>                                      // mode "submit" (the default)
+// with options.mode "simulate":                                     Promise<ProcessResult>
+// with options.mode typed ProcessMode (either value):               Promise<ProcessResult | ProcessSubmitResult>
+
+type IntegerInput = string | number | bigint; // a number, a bigint or a string of digits
+
+type ProcessOptions = {
+  mode?: ProcessMode;          // "simulate" | "submit", default "submit"
+  rpcUrl?: string;             // default: Pi Testnet RPC (https://rpc.testnet.minepi.com)
+  networkPassphrase?: string;  // default: "Pi Testnet"
+  contractAddress?: string;    // default: the Pi Testnet Subscription contract
+  timeoutSecs?: number;        // how long the transaction stays valid, default 180
+};
+
+type ProcessSubmitResult = {
+  txid: string;
+  ledger: number;
+  result: ProcessResult;
+};
 
 type ProcessResult = {
   charged: number; // subscriptions charged in this batch
@@ -319,6 +331,8 @@ type ProcessResult = {
   total: number;   // all subscriptions of the service
 };
 ```
+
+The return type follows `mode`, so TypeScript code can read `preview.total` or `outcome.txid` without narrowing. All of these types are exported from `pi-backend`.
 
 What it does, in order:
 
@@ -333,7 +347,7 @@ Errors are thrown as `PiSubscriptionError` with a `code`:
 
 | Code | Meaning |
 | --- | --- |
-| `invalid_merchant_secret`, `invalid_service_id`, `invalid_offset`, `invalid_limit`, `invalid_mode`, `invalid_timeout`, `invalid_contract_address` | An argument is invalid. Nothing was sent. |
+| `invalid_merchant_secret`, `invalid_service_id`, `invalid_offset`, `invalid_limit`, `invalid_mode`, `invalid_timeout`, `invalid_rpc_url`, `invalid_network_passphrase`, `invalid_contract_address` | An argument is invalid. Nothing was sent. |
 | `account_not_found` | The merchant account doesn't exist on the network. |
 | `simulation_failed` | The contract refused the call; `contractErrorName` says why (e.g. `NotServiceOwner`, `ServiceShutdown`). Nothing was sent. |
 | `state_archived` | Contract state the call needs is archived and must be restored first. |
@@ -344,6 +358,13 @@ Errors are thrown as `PiSubscriptionError` with a `code`:
 | `unexpected_response`, `rpc_error` | The RPC server answered with something the SDK couldn't read, or a request to it failed. |
 
 The merchant account pays the fee. The contract extends the lifetime of every entry it touches, so most of the fee is rent: expect several Pi per call. The SDK adds 50% headroom to the simulated resource fee (the unused part is refunded), so keep that much available in the merchant account.
+
+**Don't run `process` at the same time as A2U payments from the same wallet.** Every transaction uses the sending account's next sequence number. If the merchant secret is also your app wallet's seed (the one you pass to `new PiNetwork(apiKey, walletPrivateSeed)`), a `process` call and an A2U payment built at the same moment get the same sequence number, and only one of them lands. On Pi Testnet both outcomes happen:
+
+- The payment lands and `process` ends in `transaction_not_confirmed` with `detail` `"NOT_FOUND"`, after its validity window (`timeoutSecs`, about 3 minutes by default). It was never included: that batch didn't run and can be run again.
+- `process` lands and the payment's `submitPayment` fails or times out.
+
+To avoid it, run them one after the other (for example, run the scheduled `process` job when your server isn't sending payouts, or send both through one queue), or use a separate wallet for one of them.
 
 ## Troubleshooting
 

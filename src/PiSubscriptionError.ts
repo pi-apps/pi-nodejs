@@ -27,7 +27,9 @@ export type PiSubscriptionErrorCode =
   | "invalid_limit"
   | "invalid_merchant_secret"
   | "invalid_mode"
+  | "invalid_network_passphrase"
   | "invalid_offset"
+  | "invalid_rpc_url"
   | "invalid_service_id"
   | "invalid_timeout"
   | "rpc_error"
@@ -45,7 +47,9 @@ const errorMessages: Record<PiSubscriptionErrorCode, string> = {
   invalid_limit: "Limit must be an integer in 0..4294967295.",
   invalid_merchant_secret: "Merchant secret must be a valid secret seed (S...).",
   invalid_mode: 'Mode must be "simulate" or "submit".',
+  invalid_network_passphrase: "networkPassphrase must be a non-empty string.",
   invalid_offset: "Offset must be an integer in 0..4294967295.",
+  invalid_rpc_url: "rpcUrl must be an http(s) URL.",
   invalid_service_id: "Service ID must be a non-negative integer that fits in a u64.",
   invalid_timeout: "timeoutSecs must be a positive integer.",
   rpc_error: "The RPC server request failed.",
