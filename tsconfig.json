@@ -18,5 +18,5 @@
     "emitDeclarationOnly": true,
     "skipLibCheck": true
   },
-  "exclude": ["esbuild.ts", "eslint.config.js", "dist", "test"]
+  "exclude": ["esbuild.ts", "dist", "test"]
 }

@@ -3,6 +3,3 @@ src/
 tsconfig.json
 test/
 tsconfig.test.json
-eslint.config.js
-esbuild.ts
-.prettierrc
