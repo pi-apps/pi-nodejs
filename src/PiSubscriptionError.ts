@@ -1,4 +1,5 @@
-// Error codes of the subscription contract (PiCoreTeam/pi-smartcontracts, contracts/subscription).
+// Error codes of the subscription contract as deployed on Pi Testnet (v1, CCUF75B6...); any other code is
+// reported as UnknownError.
 const contractErrorNames: Record<number, string> = {
   1: "InvalidPrice",
   2: "InvalidPeriod",
@@ -17,7 +18,6 @@ const contractErrorNames: Record<number, string> = {
   15: "NoUpgradeProposed",
   16: "UpgradeTimelockNotElapsed",
   17: "UpgradeAlreadyPending",
-  18: "ServiceShutdown",
 };
 
 export type PiSubscriptionErrorCode =
