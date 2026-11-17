@@ -1,5 +1,6 @@
 // Error codes of the subscription contract as deployed on Pi Testnet (v1, CCUF75B6...); any other code is
-// reported as UnknownError.
+// reported as UnknownError. Verified against the deployed wasm; after a contract upgrade, compare with
+// `stellar contract info interface --id <contract> --network pi-testnet` (enum ContractError).
 const contractErrorNames: Record<number, string> = {
   1: "InvalidPrice",
   2: "InvalidPeriod",
