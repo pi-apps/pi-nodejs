@@ -22,53 +22,114 @@ const processResultScVal = (result: { charged: number; failed: number; skipped: 
     },
   });
 
-const simulated = (retval: StellarSdk.xdr.ScVal, minResourceFee = "1000") =>
-  ({
-    _parsed: true,
-    id: "sim",
-    latestLedger: 100,
-    events: [],
-    minResourceFee,
-    transactionData: new StellarSdk.SorobanDataBuilder(),
-    result: { auth: [], retval },
-  }) as unknown as StellarSdk.rpc.Api.SimulateTransactionSuccessResponse;
+const RESULT = { charged: 2, failed: 1, skipped: 3, total: 6 };
+const { xdr } = StellarSdk;
 
-// Stubs the RPC server. Each call records what it was given so a test can inspect the transaction.
-const stubServer = (
-  overrides: Partial<Record<"getAccount" | "simulate" | "send" | "poll", (arg: never) => unknown>> = {}
-) => {
+// Raw RPC answers, in the shapes the Soroban RPC server sends them (what the _-prefixed Server methods return).
+const accountEntries = (sequence = "41") => ({
+  latestLedger: 100,
+  entries: [
+    {
+      key: "",
+      xdr: xdr.LedgerEntryData.account(
+        new xdr.AccountEntry({
+          accountId: merchant.xdrAccountId(),
+          balance: xdr.Int64.fromString("1000000000"),
+          seqNum: xdr.Int64.fromString(sequence),
+          numSubEntries: 0,
+          inflationDest: null,
+          flags: 0,
+          homeDomain: "",
+          thresholds: Buffer.from([1, 0, 0, 0]),
+          signers: [],
+          ext: new xdr.AccountEntryExt(0),
+        })
+      ).toXDR("base64"),
+    },
+  ],
+});
+
+const rawSimulation = (
+  retval: StellarSdk.xdr.ScVal = processResultScVal(RESULT),
+  minResourceFee: unknown = "1000"
+) => ({
+  id: "sim",
+  latestLedger: 100,
+  minResourceFee,
+  transactionData: new StellarSdk.SorobanDataBuilder().build().toXDR("base64"),
+  results: [{ auth: [], xdr: retval.toXDR("base64") }],
+});
+
+const resultMetaXdr = (returnValue: StellarSdk.xdr.ScVal | null) =>
+  new xdr.TransactionMeta(
+    3,
+    new xdr.TransactionMetaV3({
+      ext: new xdr.ExtensionPoint(0),
+      txChangesBefore: [],
+      operations: [],
+      txChangesAfter: [],
+      sorobanMeta:
+        returnValue === null
+          ? null
+          : new xdr.SorobanTransactionMeta({
+              ext: new xdr.SorobanTransactionMetaExt(0),
+              events: [],
+              returnValue,
+              diagnosticEvents: [],
+            }),
+    })
+  ).toXDR("base64");
+
+const rawSuccess = (returnValue: StellarSdk.xdr.ScVal | null = processResultScVal(RESULT), ledger: unknown = 101) => ({
+  status: "SUCCESS",
+  ledger,
+  resultMetaXdr: resultMetaXdr(returnValue),
+});
+
+const transactionResultXdr = (result: StellarSdk.xdr.TransactionResultResult) =>
+  new xdr.TransactionResult({
+    feeCharged: xdr.Int64.fromString("100"),
+    result,
+    ext: new xdr.TransactionResultExt(0),
+  }).toXDR("base64");
+
+type Hook = (arg: never) => unknown;
+
+// Stubs the RPC server's raw methods. Each call records what it was given so a test can inspect the transaction.
+const stubServer = (overrides: Partial<Record<"ledgerEntries" | "simulate" | "send" | "transaction", Hook>> = {}) => {
   const calls = {
     simulated: [] as StellarSdk.Transaction[],
     sent: [] as StellarSdk.Transaction[],
     polled: [] as string[],
   };
   const proto = rpc.Server.prototype;
-  mock.method(proto, "getAccount", async (publicKey: string) =>
-    overrides.getAccount ? overrides.getAccount(publicKey as never) : new StellarSdk.Account(publicKey, "41")
+  mock.method(proto, "_getLedgerEntries", async () =>
+    overrides.ledgerEntries ? overrides.ledgerEntries(undefined as never) : accountEntries()
   );
-  mock.method(proto, "simulateTransaction", async (tx: StellarSdk.Transaction) => {
+  mock.method(proto, "_simulateTransaction", async (tx: StellarSdk.Transaction) => {
     calls.simulated.push(tx);
-    return overrides.simulate
-      ? overrides.simulate(tx as never)
-      : simulated(processResultScVal({ charged: 2, failed: 1, skipped: 3, total: 6 }));
+    return overrides.simulate ? overrides.simulate(tx as never) : rawSimulation();
   });
-  mock.method(proto, "sendTransaction", async (tx: StellarSdk.Transaction) => {
+  mock.method(proto, "_sendTransaction", async (tx: StellarSdk.Transaction) => {
     calls.sent.push(tx);
     return overrides.send
       ? overrides.send(tx as never)
       : { status: "PENDING", hash: tx.hash().toString("hex"), latestLedger: 100 };
   });
-  mock.method(proto, "pollTransaction", async (hash: string) => {
+  mock.method(proto, "_getTransaction", async (hash: string) => {
     calls.polled.push(hash);
-    return overrides.poll
-      ? overrides.poll(hash as never)
-      : {
-          status: rpc.Api.GetTransactionStatus.SUCCESS,
-          ledger: 101,
-          returnValue: processResultScVal({ charged: 2, failed: 1, skipped: 3, total: 6 }),
-        };
+    return overrides.transaction ? overrides.transaction(hash as never) : rawSuccess();
   });
   return calls;
+};
+
+// Makes the polling deadline pass right after the first getTransaction, without waiting for it.
+const expireAfterFirstPoll = () => {
+  const realNow = Date.now;
+  return () => {
+    mock.method(Date, "now", () => realNow() + 10 * 365 * 24 * 3600 * 1000);
+    return { status: "NOT_FOUND", latestLedger: 100 };
+  };
 };
 
 const invokedArgs = (tx: StellarSdk.Transaction) => {
@@ -192,6 +253,21 @@ describe("Subscription.process", () => {
       "invalid_mode",
     ],
     [
+      "the mode as a 5th argument instead of in options",
+      () => Subscription.process(merchant.secret(), 7, 0, 20, "simulate" as never),
+      "invalid_options",
+    ],
+    [
+      "a timeout too large for the time bounds",
+      () => Subscription.process(merchant.secret(), 7, 0, 20, { ...options, timeoutSecs: 2 ** 32 }),
+      "invalid_timeout",
+    ],
+    [
+      "an infinite timeout",
+      () => Subscription.process(merchant.secret(), 7, 0, 20, { ...options, timeoutSecs: Infinity }),
+      "invalid_timeout",
+    ],
+    [
       "a zero timeout",
       () => Subscription.process(merchant.secret(), 7, 0, 20, { ...options, timeoutSecs: 0 }),
       "invalid_timeout",
@@ -234,60 +310,159 @@ describe("Subscription.process", () => {
     assert.equal(calls.simulated.length, 1);
   });
 
-  it("keeps the txid when a sent transaction's result can't be read", async () => {
-    const calls = stubServer({
-      poll: () => ({
-        status: rpc.Api.GetTransactionStatus.SUCCESS,
-        ledger: 101,
-        returnValue: StellarSdk.nativeToScVal("not a ProcessResult"),
-      }),
+  it("treats options given as null like no options (submit with the defaults)", async () => {
+    const calls = stubServer();
+    const result = await Subscription.process(merchant.secret(), 7, 0, 20, null as unknown as undefined);
+    assert.equal(result.txid, calls.sent[0].hash().toString("hex"));
+  });
+
+  describe("reading the merchant account", () => {
+    it("reports an account the RPC server doesn't have as account_not_found", async () => {
+      stubServer({ ledgerEntries: () => ({ latestLedger: 100, entries: [] }) });
+      await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "account_not_found");
     });
-    const err = await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "unexpected_response");
-    assert.equal(err.txid, calls.sent[0].hash().toString("hex"));
-  });
 
-  it("reports a missing merchant account as account_not_found", async () => {
-    stubServer({ getAccount: () => Promise.reject(new Error("Account not found: G...")) });
-    await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "account_not_found");
-  });
-
-  it("names the contract error when the simulation fails", async () => {
-    const calls = stubServer({
-      simulate: () => ({
-        id: "sim",
-        latestLedger: 100,
-        events: [],
-        _parsed: true,
-        error: "HostError: Error(Contract, #9)",
-      }),
+    it("reports a failing RPC server as rpc_error, not as a missing account", async () => {
+      for (const ledgerEntries of [
+        () => undefined,
+        () => "<html>",
+        () => Promise.reject(new Error("Method not found")),
+      ]) {
+        stubServer({ ledgerEntries });
+        await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "rpc_error");
+        mock.restoreAll();
+      }
     });
-    const err = await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "simulation_failed");
-    assert.equal(err.contractErrorName, "NotServiceOwner");
-    assert.equal(err.contractErrorCode, 9);
-    assert.equal(calls.sent.length, 0);
+
+    it("refuses a sequence number whose next one doesn't fit, before signing", async () => {
+      const calls = stubServer({ ledgerEntries: () => accountEntries("9223372036854775807") });
+      await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "unexpected_response");
+      assert.equal(calls.sent.length, 0);
+    });
   });
 
-  it("reports a send the RPC server refused as transaction_rejected", async () => {
-    stubServer({ send: () => ({ status: "TRY_AGAIN_LATER", hash: "h", latestLedger: 100 }) });
-    const err = await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "transaction_rejected");
-    assert.equal(err.detail, "TRY_AGAIN_LATER");
+  describe("simulation", () => {
+    it("names the contract error when the simulation fails", async () => {
+      const calls = stubServer({
+        simulate: () => ({ id: "sim", latestLedger: 100, error: "HostError: Error(Contract, #9)" }),
+      });
+      const err = await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "simulation_failed");
+      assert.equal(err.contractErrorName, "NotServiceOwner");
+      assert.equal(err.contractErrorCode, 9);
+      assert.equal(calls.sent.length, 0);
+    });
+
+    it("reports archived contract state as state_archived", async () => {
+      const sim = rawSimulation();
+      stubServer({
+        simulate: () => ({ ...sim, restorePreamble: { minResourceFee: "10", transactionData: sim.transactionData } }),
+      });
+      await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "state_archived");
+    });
+
+    it("reports an unreadable simulation as unexpected_response", async () => {
+      stubServer({ simulate: () => ({ ...rawSimulation(), transactionData: "YWI=" }) });
+      await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "unexpected_response");
+    });
+
+    it("never signs a minResourceFee that isn't a non-negative integer", async () => {
+      for (const fee of ["-2000000", "abc", "1.5", undefined]) {
+        const calls = stubServer({ simulate: () => ({ ...rawSimulation(), minResourceFee: fee }) });
+        await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "unexpected_response");
+        assert.equal(calls.sent.length, 0, `fee ${fee}`);
+        mock.restoreAll();
+      }
+    });
+
+    it("refuses a fee larger than a transaction can carry", async () => {
+      const calls = stubServer({ simulate: () => rawSimulation(undefined, "99999999999") });
+      await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "fee_too_high");
+      assert.equal(calls.sent.length, 0);
+    });
   });
 
-  it("keeps the hash when the outcome is unknown, so the caller can look it up instead of resending", async () => {
-    const calls = stubServer({ poll: () => ({ status: rpc.Api.GetTransactionStatus.NOT_FOUND }) });
-    const err = await rejectsWith(
-      Subscription.process(merchant.secret(), 7, 0, 20, options),
-      "transaction_not_confirmed"
-    );
-    assert.equal(err.txid, calls.sent[0].hash().toString("hex"));
+  describe("sending", () => {
+    it("reports a refused send as transaction_rejected, with the txid and the result code", async () => {
+      for (const [answer, detail] of [
+        [{ status: "TRY_AGAIN_LATER" }, "TRY_AGAIN_LATER"],
+        [{ status: "ERROR", errorResultXdr: transactionResultXdr(xdr.TransactionResultResult.txBadSeq()) }, "txBadSeq"],
+        [{ status: "ERROR", errorResultXdr: "!!! not base64" }, "ERROR"],
+      ] as const) {
+        const calls = stubServer({ send: () => answer });
+        const err = await rejectsWith(
+          Subscription.process(merchant.secret(), 7, 0, 20, options),
+          "transaction_rejected"
+        );
+        assert.equal(err.detail, detail);
+        assert.equal(err.txid, calls.sent[0].hash().toString("hex"));
+        assert.equal(calls.polled.length, 0);
+        mock.restoreAll();
+      }
+    });
+
+    it("polls for a send status it doesn't know, since the transaction may still land", async () => {
+      const calls = stubServer({ send: () => ({ status: "SOMETHING_NEW" }) });
+      const result = await Subscription.process(merchant.secret(), 7, 0, 20, options);
+      assert.deepEqual(result.result, RESULT);
+      assert.equal(calls.polled.length, 1);
+    });
+
+    it("keeps the txid when the send request fails or answers without a result", async () => {
+      for (const send of [() => Promise.reject(new Error("socket hang up")), () => undefined]) {
+        const calls = stubServer({ send });
+        const err = await rejectsWith(
+          Subscription.process(merchant.secret(), 7, 0, 20, options),
+          "transaction_not_confirmed"
+        );
+        assert.equal(err.txid, calls.sent[0].hash().toString("hex"));
+        mock.restoreAll();
+      }
+    });
   });
 
-  it("keeps the hash when the send request itself fails", async () => {
-    const calls = stubServer({ send: () => Promise.reject(new Error("socket hang up")) });
-    const err = await rejectsWith(
-      Subscription.process(merchant.secret(), 7, 0, 20, options),
-      "transaction_not_confirmed"
-    );
-    assert.equal(err.txid, calls.sent[0].hash().toString("hex"));
+  describe("waiting for the outcome", () => {
+    it("keeps the txid when the outcome is unknown at the deadline, so the caller can look it up", async () => {
+      const calls = stubServer({ transaction: expireAfterFirstPoll() });
+      const err = await rejectsWith(
+        Subscription.process(merchant.secret(), 7, 0, 20, options),
+        "transaction_not_confirmed"
+      );
+      assert.equal(err.txid, calls.sent[0].hash().toString("hex"));
+      assert.equal(err.detail, "NOT_FOUND");
+    });
+
+    it("retries a failed getTransaction instead of giving up", async () => {
+      let polls = 0;
+      stubServer({ transaction: () => (++polls === 1 ? Promise.reject(new Error("blip")) : rawSuccess()) });
+      const result = await Subscription.process(merchant.secret(), 7, 0, 20, options);
+      assert.deepEqual(result.result, RESULT);
+      assert.equal(polls, 2);
+    });
+
+    it("reports a failed transaction as transaction_failed with its result code", async () => {
+      const calls = stubServer({
+        transaction: () => ({
+          status: "FAILED",
+          resultXdr: transactionResultXdr(xdr.TransactionResultResult.txFailed([])),
+        }),
+      });
+      const err = await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "transaction_failed");
+      assert.equal(err.detail, "txFailed");
+      assert.equal(err.txid, calls.sent[0].hash().toString("hex"));
+    });
+
+    it("keeps the txid when a successful transaction's result can't be read", async () => {
+      for (const [answer, code] of [
+        [rawSuccess(null), "transaction_not_confirmed"],
+        [rawSuccess(StellarSdk.nativeToScVal("not a ProcessResult")), "unexpected_response"],
+        [rawSuccess(undefined, "x"), "unexpected_response"],
+        [{ status: "SUCCESS", ledger: 101, resultMetaXdr: "!!!" }, "unexpected_response"],
+      ] as const) {
+        const calls = stubServer({ transaction: () => answer });
+        const err = await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), code);
+        assert.equal(err.txid, calls.sent[0].hash().toString("hex"));
+        mock.restoreAll();
+      }
+    });
   });
 });

@@ -315,7 +315,7 @@ type ProcessOptions = {
   rpcUrl?: string;             // default: Pi Testnet RPC (https://rpc.testnet.minepi.com)
   networkPassphrase?: string;  // default: "Pi Testnet"
   contractAddress?: string;    // default: the Pi Testnet Subscription contract
-  timeoutSecs?: number;        // how long the transaction stays valid, default 180
+  timeoutSecs?: number;        // how long the transaction stays valid (1..4294967295), default 180
 };
 
 type ProcessSubmitResult = {
@@ -347,7 +347,7 @@ Errors are thrown as `PiSubscriptionError` with a `code`:
 
 | Code | Meaning |
 | --- | --- |
-| `invalid_merchant_secret`, `invalid_service_id`, `invalid_offset`, `invalid_limit`, `invalid_mode`, `invalid_timeout`, `invalid_rpc_url`, `invalid_network_passphrase`, `invalid_contract_address` | An argument is invalid. Nothing was sent. |
+| `invalid_merchant_secret`, `invalid_service_id`, `invalid_offset`, `invalid_limit`, `invalid_mode`, `invalid_options`, `invalid_timeout`, `invalid_rpc_url`, `invalid_network_passphrase`, `invalid_contract_address` | An argument is invalid. Nothing was sent. |
 | `account_not_found` | The merchant account doesn't exist on the network. |
 | `simulation_failed` | The contract refused the call; `contractErrorName` says why (e.g. `NotServiceOwner`, `ServiceShutdown`). Nothing was sent. |
 | `state_archived` | Contract state the call needs is archived and must be restored first. |

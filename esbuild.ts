@@ -27,7 +27,8 @@ const cjsBuildOptions: esbuild.BuildOptions = {
   outfile: "dist/index.cjs",
   format: "cjs",
   define: { ...buildOptions.define, "import.meta.url": "__piImportMetaUrl" },
-  banner: { js: 'const __piImportMetaUrl = require("url").pathToFileURL(__filename).href;' },
+  // "use strict" first: a directive only counts at the very start of the file.
+  banner: { js: '"use strict";const __piImportMetaUrl = require("url").pathToFileURL(__filename).href;' },
   // The ESM build already writes the license file.
   legalComments: "none",
 };
