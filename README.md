@@ -29,7 +29,7 @@ npm and yarn save this as `"pi-backend": "^1.0.0"`, so later updates stay on 1.x
 
 1. **Use Node.js 20 or later.** 1.x depends on `@stellar/stellar-sdk` 14, which needs it.
 2. **Install 1.x:** `npm install pi-backend@next` (or `yarn add pi-backend@next`). This replaces `"^0.1.3"` with `"^1.0.0"` in your `package.json`.
-3. **Loading the package is unchanged.** Both styles still work:
+3. **Loading the package:** TypeScript and CommonJS code loads it as before. In plain Node.js ES modules, the default import is now the `PiNetwork` class itself (0.1.x was CommonJS only and gave the whole exports object there), so drop any `.default` you added as a workaround:
    ```javascript
    import PiNetwork from "pi-backend";                // ES modules / TypeScript
    const PiNetwork = require("pi-backend").default;  // CommonJS
@@ -355,7 +355,7 @@ Errors are thrown as `PiSubscriptionError` with a `code`:
 | `transaction_rejected` | The RPC server didn't accept the transaction (e.g. `txInsufficientBalance`); `detail` has the result code. |
 | `transaction_failed` | The transaction was included but failed; `txid` identifies it. |
 | `transaction_not_confirmed` | Sent, but the outcome is unknown. Look up `txid` before sending again. |
-| `unexpected_response`, `rpc_error` | The RPC server answered with something the SDK couldn't read, or a request to it failed. If the error has a `txid`, the transaction was already sent: look it up before running the batch again. |
+| `unexpected_response`, `rpc_error` | The RPC server answered with something the SDK couldn't read, or a request to it failed. An `unexpected_response` with a `txid` means the transaction was already sent (it may have succeeded): look it up before running the batch again. |
 
 The merchant account pays the fee. On the default Pi Testnet contract a call has cost about 0.01 to 0.02 Pi. It grows with the number of subscriptions in the batch, and with rent: the contract extends the lifetime of every entry it touches, which costs more when entries are close to expiring. The SDK adds 50% headroom to the simulated resource fee (the unused part is refunded), so keep more than that available in the merchant account.
 

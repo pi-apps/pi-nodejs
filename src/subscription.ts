@@ -19,6 +19,9 @@ const U64_MAX = BigInt("18446744073709551615");
 const SEQUENCE_MAX = BigInt("9223372036854775806");
 const TIMEOUT_MAX = 0xffffffff;
 const POLL_INTERVAL_MS = 1000;
+// Per RPC request, so one request that never answers can't hold process() forever. (rpc.Server accepts a timeout
+// option but doesn't apply it, so it's enforced here.)
+const REQUEST_TIMEOUT_MS = 30_000;
 
 // Integer arguments may be a number, a bigint or a string of digits (IDs read from a database or a request).
 const toBigInt = (value: unknown): bigint | null => {
@@ -51,7 +54,19 @@ const toHttpUrl = (value: unknown): URL | null => {
   }
 };
 
-const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+// The Stellar SDK throws a JSON-RPC error as the plain { code, message } object, not as an Error.
+const errorText = (err: unknown): string => {
+  if (err instanceof Error) return err.message;
+  if (isObject(err) && typeof err.message === "string") return err.message;
+  try {
+    return JSON.stringify(err) ?? String(err);
+  } catch {
+    return String(err);
+  }
+};
 
 // txid is set once the transaction has been sent, so an unreadable result still says which transaction it was.
 const toProcessResult = (value: StellarSdk.xdr.ScVal, txid?: string): ProcessResult => {
@@ -75,10 +90,23 @@ const toProcessResult = (value: StellarSdk.xdr.ScVal, txid?: string): ProcessRes
   };
 };
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Rejects when the request hasn't answered within ms. The request itself can't be aborted, but it's no longer waited for.
+const withTimeout = <T>(request: Promise<T>, ms: number, method: string): Promise<T> =>
+  new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${method}: no answer within ${Math.ceil(ms / 1000)} s`)), ms);
+    request.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
 
 // The RPC methods below are called through the Stellar SDK's raw variants (_getLedgerEntries, _simulateTransaction,
 // _sendTransaction, _getTransaction) and their answers are checked here, so that a failing RPC server is reported
@@ -90,7 +118,7 @@ const loadAccount = async (server: StellarSdk.rpc.Server, publicKey: string): Pr
   );
   let raw: unknown;
   try {
-    raw = await server._getLedgerEntries(key);
+    raw = await withTimeout(server._getLedgerEntries(key), REQUEST_TIMEOUT_MS, "getLedgerEntries");
   } catch (err) {
     throw new PiSubscriptionError("rpc_error", { data: { detail: `getLedgerEntries: ${errorText(err)}` } });
   }
@@ -125,7 +153,7 @@ const simulate = async (
 ): Promise<StellarSdk.rpc.Api.SimulateTransactionResponse> => {
   let raw: unknown;
   try {
-    raw = await server._simulateTransaction(transaction);
+    raw = await withTimeout(server._simulateTransaction(transaction), REQUEST_TIMEOUT_MS, "simulateTransaction");
   } catch (err) {
     throw new PiSubscriptionError("rpc_error", { data: { detail: `simulateTransaction: ${errorText(err)}` } });
   }
@@ -152,7 +180,7 @@ const resultCode = (resultXdr: unknown): string | undefined => {
 const send = async (server: StellarSdk.rpc.Server, transaction: StellarSdk.Transaction, txid: string) => {
   let raw: unknown;
   try {
-    raw = await server._sendTransaction(transaction);
+    raw = await withTimeout(server._sendTransaction(transaction), REQUEST_TIMEOUT_MS, "sendTransaction");
   } catch (err) {
     // The request may have reached the server: the transaction can still land under this hash.
     throw new PiSubscriptionError("transaction_not_confirmed", { data: { txid, detail: errorText(err) } });
@@ -171,8 +199,8 @@ const send = async (server: StellarSdk.rpc.Server, transaction: StellarSdk.Trans
   }
 };
 
-// The ProcessResult a successful transaction returned. A success without a return value is
-// transaction_not_confirmed; anything unreadable is unexpected_response. Both keep the txid.
+// The ProcessResult a successful transaction returned. The transaction succeeded, so anything missing or
+// unreadable here is unexpected_response, with the txid.
 const successResult = (raw: Record<string, unknown>, txid: string): ProcessSubmitResult => {
   const ledger = raw.ledger;
   if (typeof ledger !== "number" || !Number.isSafeInteger(ledger) || ledger < 0) {
@@ -192,7 +220,7 @@ const successResult = (raw: Record<string, unknown>, txid: string): ProcessSubmi
     });
   }
   if (!returnValue) {
-    throw new PiSubscriptionError("transaction_not_confirmed", {
+    throw new PiSubscriptionError("unexpected_response", {
       data: { txid, detail: "The transaction succeeded but returned no value." },
     });
   }
@@ -210,7 +238,9 @@ const waitForTransaction = async (
   for (;;) {
     let raw: unknown;
     try {
-      raw = await server._getTransaction(txid);
+      // Never past the deadline (but at least 1 s, so a late poll still gets an answer).
+      const ms = Math.min(REQUEST_TIMEOUT_MS, Math.max(deadlineMs - Date.now(), 1000));
+      raw = await withTimeout(server._getTransaction(txid), ms, "getTransaction");
     } catch (err) {
       lastDetail = errorText(err);
     }
@@ -352,9 +382,7 @@ async function processSubscriptions(
   const fee = BigInt(INCLUSION_FEE) + resourceFee;
   if (fee > U32_MAX_BIGINT) throw new PiSubscriptionError("fee_too_high", { data: { detail: `${fee} stroops` } });
   simulation.transactionData.setResourceFee(resourceFee);
-  const prepared = StellarSdk.rpc
-    .assembleTransaction(transaction, { ...simulation, minResourceFee: resourceFee.toString() })
-    .build();
+  const prepared = StellarSdk.rpc.assembleTransaction(transaction, simulation).build();
   prepared.sign(keypair);
   const txid = prepared.hash().toString("hex");
 

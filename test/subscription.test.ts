@@ -98,14 +98,16 @@ type Hook = (arg: never) => unknown;
 // Stubs the RPC server's raw methods. Each call records what it was given so a test can inspect the transaction.
 const stubServer = (overrides: Partial<Record<"ledgerEntries" | "simulate" | "send" | "transaction", Hook>> = {}) => {
   const calls = {
+    ledgerEntries: 0,
     simulated: [] as StellarSdk.Transaction[],
     sent: [] as StellarSdk.Transaction[],
     polled: [] as string[],
   };
   const proto = rpc.Server.prototype;
-  mock.method(proto, "_getLedgerEntries", async () =>
-    overrides.ledgerEntries ? overrides.ledgerEntries(undefined as never) : accountEntries()
-  );
+  mock.method(proto, "_getLedgerEntries", async () => {
+    calls.ledgerEntries += 1;
+    return overrides.ledgerEntries ? overrides.ledgerEntries(undefined as never) : accountEntries();
+  });
   mock.method(proto, "_simulateTransaction", async (tx: StellarSdk.Transaction) => {
     calls.simulated.push(tx);
     return overrides.simulate ? overrides.simulate(tx as never) : rawSimulation();
@@ -296,6 +298,7 @@ describe("Subscription.process", () => {
     it(`rejects ${label} before calling the RPC server`, async () => {
       const calls = stubServer();
       await rejectsWith(call(), code);
+      assert.equal(calls.ledgerEntries, 0);
       assert.equal(calls.simulated.length, 0);
     });
   }
@@ -320,6 +323,26 @@ describe("Subscription.process", () => {
     it("reports an account the RPC server doesn't have as account_not_found", async () => {
       stubServer({ ledgerEntries: () => ({ latestLedger: 100, entries: [] }) });
       await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "account_not_found");
+    });
+
+    it("keeps the message of a JSON-RPC error, which the Stellar SDK throws as a plain object", async () => {
+      stubServer({ ledgerEntries: () => Promise.reject({ code: -32601, message: "method not found" }) });
+      const err = await rejectsWith(Subscription.process(merchant.secret(), 7, 0, 20, options), "rpc_error");
+      assert.equal(err.detail, "getLedgerEntries: method not found");
+    });
+
+    it("doesn't wait forever for a request that never answers", async () => {
+      mock.timers.enable({ apis: ["setTimeout"] });
+      try {
+        stubServer({ ledgerEntries: () => new Promise(() => {}) });
+        const pending = Subscription.process(merchant.secret(), 7, 0, 20, options);
+        for (let i = 0; i < 5; i++) await Promise.resolve(); // let process() reach the request
+        mock.timers.tick(30_000);
+        const err = await rejectsWith(pending, "rpc_error");
+        assert.match(String(err.detail), /no answer within 30 s/);
+      } finally {
+        mock.timers.reset();
+      }
     });
 
     it("reports a failing RPC server as rpc_error, not as a missing account", async () => {
@@ -453,7 +476,7 @@ describe("Subscription.process", () => {
 
     it("keeps the txid when a successful transaction's result can't be read", async () => {
       for (const [answer, code] of [
-        [rawSuccess(null), "transaction_not_confirmed"],
+        [rawSuccess(null), "unexpected_response"],
         [rawSuccess(StellarSdk.nativeToScVal("not a ProcessResult")), "unexpected_response"],
         [rawSuccess(undefined, "x"), "unexpected_response"],
         [{ status: "SUCCESS", ledger: 101, resultMetaXdr: "!!!" }, "unexpected_response"],
