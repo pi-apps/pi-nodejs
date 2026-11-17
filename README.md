@@ -4,15 +4,79 @@ This is an official Pi Network Node.js npm package you can use to integrate the 
 
 ## Install
 
-Install this package as a dependency of your app:
+This README is for **version 1.x**, which needs **Node.js 20 or later**. While 1.x is new, it is published under npm's `next` tag, so install it by that tag:
 
 ```shell
 # With npm:
-npm install --save pi-backend
+npm install --save pi-backend@next
 
 # With yarn:
-yarn add pi-backend
+yarn add pi-backend@next
 ```
+
+npm and yarn save this as `"pi-backend": "^1.0.0"`, so later updates stay on 1.x. Installing without a tag (`npm install pi-backend`) still gives 0.1.x, the version most apps run today (see [Versions](#versions)).
+
+## Versions
+
+| Version | npm tag | Node.js | What it includes | Install | Docs |
+| --- | --- | --- | --- | --- | --- |
+| **1.x** | `next` | 20 or later | A2U payments, server-side subscription processing | `npm install pi-backend@next` | this README |
+| **0.1.x** | `latest` (the default) | older versions supported | A2U payments | `npm install pi-backend` | [0.1.3 README](https://github.com/pi-apps/pi-nodejs/tree/0.1.3) |
+
+**Already using 0.1.x? Nothing changes for you.** npm saved your dependency as `"pi-backend": "^0.1.3"`, and that range never resolves to 1.x, so `npm install`, `npm ci` and `npm update` keep you on 0.1.3. Version 0.1.3 stays published, and stays the default for `npm install pi-backend` until 1.x is announced as the new default. Even then, a `^0.1.3` range keeps you on 0.1.x. Upgrade only when you want the new features.
+
+## Upgrading from 0.1.x to 1.x
+
+1. **Use Node.js 20 or later.** 1.x depends on `@stellar/stellar-sdk` 14, which needs it.
+2. **Install 1.x:** `npm install pi-backend@next` (or `yarn add pi-backend@next`). This replaces `"^0.1.3"` with `"^1.0.0"` in your `package.json`.
+3. **Loading the package:** TypeScript and CommonJS code loads it as before. In plain Node.js ES modules, the default import is now the `PiNetwork` class itself (0.1.x was CommonJS only and gave the whole exports object there), so drop any `.default` you added as a workaround:
+   ```javascript
+   import PiNetwork from "pi-backend";                // ES modules / TypeScript
+   const PiNetwork = require("pi-backend").default;  // CommonJS
+   ```
+4. **The constructor no longer takes a third `options` argument.** In 0.1.x, `new PiNetwork(apiKey, walletPrivateSeed, { baseUrl })` could point the SDK at another Platform API host. 1.x always uses `https://api.minepi.com`, so drop the third argument:
+   ```javascript
+   const pi = new PiNetwork(apiKey, walletPrivateSeed);
+   ```
+5. **Errors are now `PiPaymentError`s with a `code`.** In 0.1.x, methods threw plain `Error`s or raw axios errors. In 1.x, every payment method throws a `PiPaymentError`, with `code` plus `payment`, `paymentId`, `txid` or `verificationError` where they apply. For example, creating a payment while another one is ongoing:
+   ```javascript
+   // 0.1.x
+   try { await pi.createPayment(paymentData); }
+   catch (err) { const ongoing = err.response?.data?.payment; }
+
+   // 1.x
+   import PiNetwork, { PiPaymentError } from "pi-backend";
+   try { await pi.createPayment(paymentData); }
+   catch (err) {
+     if (err instanceof PiPaymentError && err.code === "ongoing_payment_found") {
+       const ongoing = err.payment;
+     }
+   }
+   ```
+   Invalid arguments are reported the same way, e.g. `missing_api_key`, `invalid_wallet_private_seed`, `amount_not_number`.
+
+The payment methods themselves (`createPayment`, `submitPayment`, `completePayment`, `getPayment`, `cancelPayment`, `getIncompleteServerPayments`), their arguments and their return values are unchanged.
+
+## SDK structure
+
+```
+pi-backend
+├── default export: PiNetwork                  A2U payments
+│     new PiNetwork(apiKey, walletPrivateSeed)
+│     .createPayment(paymentArgs)
+│     .submitPayment(paymentId)
+│     .completePayment(paymentId, txid)
+│     .getPayment(paymentId)
+│     .cancelPayment(paymentId)
+│     .getIncompleteServerPayments()
+├── SmartContract                               same path as the client SDK's Pi.SmartContract
+│     └── Subscription
+│           └── process(merchantSecret, serviceId, offset, limit, options?)
+├── PiPaymentError
+└── PiSubscriptionError
+```
+
+Smart-contract methods take their arguments in the same order as the client SDK: who signs first, then IDs, then values or paging, then `options` last. The only difference is the first argument: the client SDK takes the merchant's address and asks the Pi Wallet to sign, while this package takes the merchant's secret seed and signs on the server.
 
 ## Example
 
@@ -194,6 +258,113 @@ If a payment is returned by this method, you must follow one of the following 3 
 3. if a blockchain transaction has been made, complete the payment
 
 If you do not know what this payment maps to in your business logic, you may use its `metadata` property to retrieve which business logic item it relates to. Remember that `metadata` is a required argument when creating a payment, and should be used as a way to link this payment to an item of your business logic.
+
+## Subscription processing (server-side)
+
+Subscriptions run on Pi's on-chain Subscription contract. Renewals don't happen on their own: the merchant (the wallet that owns the subscription service) calls the contract's `process` to collect every payment that is due.
+
+In the Pi Browser, the client SDK's `Pi.SmartContract.Subscription.process` makes the merchant sign in the Pi Wallet and enter the passphrase each time. `SmartContract.Subscription.process` in this package does the same from your server instead: it builds the call, signs it with the merchant wallet's secret seed and sends it straight to the Pi Soroban RPC server. Nothing goes through the Pi Browser, so it can run from a scheduled job.
+
+> Subscriptions are available only on Pi Testnet for now, and need Node.js 20 or later (see [Versions](#versions)).
+
+### Example
+
+```javascript
+import { SmartContract, PiSubscriptionError } from "pi-backend";
+// CommonJS: const { SmartContract, PiSubscriptionError } = require("pi-backend");
+
+// The merchant wallet's secret seed (starts with S). Keep it on your server only, e.g. in an environment variable.
+const merchantSecret = process.env.PI_MERCHANT_SECRET;
+const serviceId = "0"; // your service_id on the Subscription contract
+const BATCH = 20;
+
+// 1. Preview the first batch without signing or sending. `total` is how many subscriptions to page through.
+const preview = await SmartContract.Subscription.process(merchantSecret, serviceId, 0, BATCH, { mode: "simulate" });
+
+// 2. Collect renewals, one batch per transaction.
+for (let offset = 0; offset < preview.total; offset += BATCH) {
+  try {
+    const { txid, result } = await SmartContract.Subscription.process(merchantSecret, serviceId, offset, BATCH);
+    console.log(txid, result); // { charged, failed, skipped, total }
+  } catch (err) {
+    if (err instanceof PiSubscriptionError && err.code === "transaction_not_confirmed") {
+      // Sent, but the outcome is unknown: look up err.txid before running this batch again.
+    }
+    throw err;
+  }
+}
+```
+
+### `SmartContract.Subscription.process`
+
+```typescript
+SmartContract.Subscription.process(
+  merchantSecret: string,   // the merchant wallet's secret seed (S...)
+  serviceId: IntegerInput,  // the service to process (u64)
+  offset: IntegerInput,     // where to start in the service's subscription list (u32)
+  limit: IntegerInput,      // how many subscriptions to handle in this call (u32)
+  options?: ProcessOptions
+): Promise<ProcessSubmitResult>                                      // mode "submit" (the default)
+// with options.mode "simulate":                                     Promise<ProcessResult>
+// with options.mode typed ProcessMode (either value):               Promise<ProcessResult | ProcessSubmitResult>
+
+type IntegerInput = string | number | bigint; // a number, a bigint or a string of digits
+
+type ProcessOptions = {
+  mode?: ProcessMode;          // "simulate" | "submit", default "submit"
+  rpcUrl?: string;             // default: Pi Testnet RPC (https://rpc.testnet.minepi.com)
+  networkPassphrase?: string;  // default: "Pi Testnet"
+  contractAddress?: string;    // default: the Pi Testnet Subscription contract
+  timeoutSecs?: number;        // how long the transaction stays valid (1..4294967295), default 180
+};
+
+type ProcessSubmitResult = {
+  txid: string;
+  ledger: number;
+  result: ProcessResult;
+};
+
+type ProcessResult = {
+  charged: number; // subscriptions charged in this batch
+  failed: number;  // charges that failed; the contract turned those subscriptions' auto-renew off
+  skipped: number; // not due yet, not auto-renewing, or missing
+  total: number;   // all subscriptions of the service
+};
+```
+
+The return type follows `mode`, so TypeScript code can read `preview.total` or `outcome.txid` without narrowing. All of these types are exported from `pi-backend`.
+
+What it does, in order:
+
+1. Checks the arguments. Nothing is sent if one is invalid.
+2. Loads the merchant account and builds `process(merchant, serviceId, offset, limit)`, with the merchant's public key derived from the secret.
+3. Simulates the call. With `mode: "simulate"` it stops here and resolves with the `ProcessResult` the call would produce.
+4. With `mode: "submit"` (the default) it signs the call, sends it and waits for the result (up to `timeoutSecs` plus a few seconds), then resolves with `{ txid, ledger, result }`.
+
+The contract charges every auto-renewing subscription in `[offset, offset + limit)` whose renewal is due. A failed charge (low balance, used-up allowance, or more than one period late) doesn't stop the batch: it's counted in `failed` and that subscription's auto-renew is turned off. Run `process` at least once per billing period.
+
+Errors are thrown as `PiSubscriptionError` with a `code`:
+
+| Code | Meaning |
+| --- | --- |
+| `invalid_merchant_secret`, `invalid_service_id`, `invalid_offset`, `invalid_limit`, `invalid_mode`, `invalid_options`, `invalid_timeout`, `invalid_rpc_url`, `invalid_network_passphrase`, `invalid_contract_address` | An argument is invalid. Nothing was sent. |
+| `account_not_found` | The merchant account doesn't exist on the network. |
+| `simulation_failed` | The contract refused the call; `contractErrorName` says why (e.g. `NotServiceOwner`, `ServiceNotFound`). Nothing was sent. |
+| `state_archived` | Contract state the call needs is archived and must be restored first. |
+| `fee_too_high` | The fee is larger than a transaction can carry. Use a smaller `limit`. |
+| `transaction_rejected` | The RPC server didn't accept the transaction (e.g. `txInsufficientBalance`); `detail` has the result code. |
+| `transaction_failed` | The transaction was included but failed; `txid` identifies it. |
+| `transaction_not_confirmed` | Sent, but the outcome is unknown. Look up `txid` before sending again. |
+| `unexpected_response`, `rpc_error` | The RPC server answered with something the SDK couldn't read, or a request to it failed. An `unexpected_response` with a `txid` means the transaction was already sent (it may have succeeded): look it up before running the batch again. |
+
+The merchant account pays the fee. On the default Pi Testnet contract a call has cost about 0.01 to 0.02 Pi. It grows with the number of subscriptions in the batch, and with rent: the contract extends the lifetime of every entry it touches, which costs more when entries are close to expiring. The SDK adds 50% headroom to the simulated resource fee (the unused part is refunded), so keep more than that available in the merchant account.
+
+**Don't run `process` at the same time as A2U payments from the same wallet.** Every transaction uses the sending account's next sequence number. If the merchant secret is also your app wallet's seed (the one you pass to `new PiNetwork(apiKey, walletPrivateSeed)`), a `process` call and an A2U payment built at the same moment get the same sequence number, and only one of them lands. On Pi Testnet both outcomes happen:
+
+- The payment lands first and `process` fails. If the payment had already landed when `process` was sent, that's right away, with `transaction_rejected` and `detail` `"txBadSeq"`. Otherwise the RPC server accepts `process` and then drops it, and it ends in `transaction_not_confirmed` with `detail` `"NOT_FOUND"` after its validity window (`timeoutSecs`, about 3 minutes by default). Either way it was never included: that batch didn't run and can be run again.
+- `process` lands and the payment's `submitPayment` fails or times out.
+
+To avoid it, run them one after the other (for example, run the scheduled `process` job when your server isn't sending payouts, or send both through one queue), or use a separate wallet for one of them.
 
 ## Troubleshooting
 

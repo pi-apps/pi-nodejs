@@ -5,6 +5,8 @@ import { config } from "./config";
 import { AxiosInstance, isAxiosError } from "axios";
 import { PiPaymentError } from "./PiPaymentError";
 import { PiPaymentApiCancelError, PiPaymentApiCompleteError, PiPaymentApiCreateError } from "./types/errors";
+import { SmartContract } from "./subscription";
+import { PiSubscriptionError } from "./PiSubscriptionError";
 
 export default class PiNetwork {
   private api: AxiosInstance;
@@ -234,4 +236,12 @@ export default class PiNetwork {
   };
 }
 
-export { PiPaymentError };
+export { PiPaymentError, SmartContract, PiSubscriptionError };
+export type {
+  IntegerInput,
+  ProcessMode,
+  ProcessOptions,
+  ProcessResult,
+  ProcessSubmitResult,
+} from "./types/subscription";
+export type { PiSubscriptionErrorCode } from "./PiSubscriptionError";

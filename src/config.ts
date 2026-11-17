@@ -1,8 +1,10 @@
 import dotenv from "dotenv";
-import path from "path";
+import { fileURLToPath } from "url";
 
 export const dotenvConfig = dotenv.config({
-  path: path.resolve(__dirname, `../.env.${process.env.PI_ENV}`),
+  // ES modules have no __dirname (the CommonJS build defines import.meta.url in esbuild.ts). `../` is the package
+  // root from dist/index.js, dist/index.cjs and src/config.ts.
+  path: fileURLToPath(new URL(`../.env.${process.env.PI_ENV}`, import.meta.url)),
 }).parsed;
 
 if (!dotenvConfig) {

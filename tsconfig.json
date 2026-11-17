@@ -2,7 +2,7 @@
   "compilerOptions": {
     "baseUrl": "./src",
     "outDir": "./dist",
-    "module": "commonjs",
+    "module": "es2020",
     "noImplicitAny": true,
     "target": "es2020",
     "allowJs": true,
@@ -18,5 +18,5 @@
     "emitDeclarationOnly": true,
     "skipLibCheck": true
   },
-  "exclude": ["esbuild.ts", "dist"]
+  "exclude": ["esbuild.ts", "dist", "test"]
 }
