@@ -5,7 +5,7 @@ import {
   PiPaymentApiCompleteErrorCode,
   PiPaymentApiCancelErrorCode,
 } from "./types/errors";
-import { OperationResultCode, TransactionResultCode } from "utils";
+import { OperationResultCode, TransactionResultCode } from "./utils";
 
 export type PiPaymentSdkErrorCode =
   | TransactionResultCode
