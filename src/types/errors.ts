@@ -1,4 +1,4 @@
-import { PaymentDTO } from "types";
+import { PaymentDTO } from "./index";
 
 export type PiPaymentApiNotFoundErrorCode = "payment_not_found";
 
